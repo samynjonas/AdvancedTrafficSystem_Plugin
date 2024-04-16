@@ -1,2 +1,1 @@
-# AdvancedTrafficSystem_Plugin
-An Unreal Engine plugin for advanced traffic system that uses Unreal Engine's ZoneGraph system
+AdvancedTrafficSystem is an Unreal Engine plugin that uses Unreal Engines ZoneGraph system to control vehicles
