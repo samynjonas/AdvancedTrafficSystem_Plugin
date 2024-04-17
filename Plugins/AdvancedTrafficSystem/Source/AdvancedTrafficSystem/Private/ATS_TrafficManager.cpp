@@ -1,38 +1,29 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "../Public/ATS_TrafficManager.h"
-#include "ZoneShapeComponent.h"
-#include "EngineUtils.h"
-
-#include "../Public/ATS_BaseTrafficRuler.h"
 #include "../Public/ATS_TrafficLight.h"
 #include "../Public/ATS_AgentNavigation.h"
+#include "../Public/ATS_BaseTrafficRuler.h"
+#include "../Public/ATS_TrafficAwarenessComponent.h"
 
-//#include "ZoneGraphTestingActor.h"
-#include "ZoneGraphAStar.h"
-
+#include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
+
+#include "ZoneGraphAStar.h"
+#include "ZoneShapeComponent.h"
 #include <ZoneGraphRenderingUtilities.h>
 
-
-//THIS MANAGER WILL HANDLE ZONESHAPES FINDING AND SAVING
-
-// Sets default values
 AATS_TrafficManager::AATS_TrafficManager()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 }
 
 AATS_TrafficManager::~AATS_TrafficManager()
 {
+    //Cleanup of all containers
     pArrZoneShapes.Empty();
     pArrVehicleZoneShapes.Empty();
     pArrPedestrianZoneShapes.Empty();
 }
 
-// Called when the game starts or when spawned
 void AATS_TrafficManager::BeginPlay()
 {    
 	Super::BeginPlay();
@@ -46,7 +37,7 @@ void AATS_TrafficManager::Initialize()
         return;
     }
 
-    // Get subsystems
+    //Retrieve ZoneGraphSubsystem
     UWorld* World = GetWorld();
     m_pZoneGraphSubSystem = UWorld::GetSubsystem<UZoneGraphSubsystem>(World);
     check(m_pZoneGraphSubSystem);
@@ -59,9 +50,9 @@ void AATS_TrafficManager::Initialize()
 
 void AATS_TrafficManager::SearchZoneShapes()
 {
+    //Check if it already contains ZoneShapes
     if (bContainsZoneshapes)
     {
-        //Already contains zoneshapes no need to check again
         return;
     }
 
@@ -985,6 +976,41 @@ void AATS_TrafficManager::DrawPath(const TArray<FZoneGraphLaneHandle>& lanes)
         DrawDebugSphere(GetWorld(), lanePoints[i], 50.f, 10, color, false, 0.f, 0, 5.f);
     }
 
+}
+
+bool AATS_TrafficManager::RegisterTrafficObject(UATS_TrafficAwarenessComponent* pTrafficObject, FVector& connectionPoint, float maxAttachDistance)
+{
+    if (pTrafficObject == nullptr)
+    {
+        if (bIsDebugging)
+        {
+            UE_LOG(LogTemp, Error, TEXT("TrafficManager::RegisterTrafficObject() -- TrafficObject is null"));
+        }
+		return false;
+	}
+
+    if (maxAttachDistance == -1)
+    {
+		maxAttachDistance = m_SearchDistance;
+	}
+
+
+    float distanceSqr{};
+    FZoneGraphLaneLocation closestLane;
+    FVector trafficObjectLocation = pTrafficObject->GetOwner()->GetActorLocation();
+
+    if (!m_pZoneGraphSubSystem->FindNearestLane(FBox(trafficObjectLocation - FVector(maxAttachDistance), trafficObjectLocation + FVector(maxAttachDistance)), FZoneGraphTagFilter(), closestLane, distanceSqr))
+    {
+        if (bIsDebugging)
+        {
+            UE_LOG(LogTemp, Error, TEXT("TrafficManager::No nearby lane found for traffic light"));
+            return false;
+        }
+    }
+
+    connectionPoint = closestLane.Position;
+    m_MapTrafficObjects.Add(closestLane.LaneHandle, pTrafficObject);
+    return true;
 }
 
 void AATS_TrafficManager::Debugging()

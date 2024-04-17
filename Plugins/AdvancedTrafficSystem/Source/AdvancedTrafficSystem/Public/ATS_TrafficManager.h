@@ -13,6 +13,7 @@ class UZoneShapeComponent;
 class UZoneGraphSubsystem;
 class UATS_AgentNavigation;
 class AATS_BaseTrafficRuler;
+class UATS_TrafficAwarenessComponent;
 
 UCLASS()
 class ADVANCEDTRAFFICSYSTEM_API AATS_TrafficManager : public AActor
@@ -20,13 +21,11 @@ class ADVANCEDTRAFFICSYSTEM_API AATS_TrafficManager : public AActor
 	GENERATED_BODY()
 	
 public:	
-	// Sets default values for this actor's properties
 	AATS_TrafficManager();
 
 protected:
 	~AATS_TrafficManager();
 
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	void SortZoneShapes();
@@ -36,16 +35,12 @@ protected:
 	void Debugging();
 
 public:
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	//Returns VehicleZoneShapes
 	const TArray<UZoneShapeComponent*> GetVehicleZoneShapes() const
 	{
 		return pArrVehicleZoneShapes;
 	}
-
-	//Return PedestrianZoneShapes
 	const TArray<UZoneShapeComponent*> GetPedestrianZoneShapes() const
 	{
 		return pArrPedestrianZoneShapes;
@@ -65,6 +60,8 @@ public:
 
 	void UnregisterAgent(AActor* pAgent, UATS_AgentNavigation* pAgentNavigation);
 
+	bool RegisterTrafficObject(UATS_TrafficAwarenessComponent* pTrafficObject, FVector& connectionPoint, float maxAttachDistance = -1);
+
 	FVector GetNextNavigationPoint(AActor* Agent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData);
 	FVector GetNextNavigationPathPoint(AActor* Agent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData, FTrafficNavigationPath& navPath);
 
@@ -81,7 +78,6 @@ public:
 	FTransform GetClosestLanePoint(const FVector& Location, float searchDistance) const;
 
 	void DrawPath(const TArray<FZoneGraphLaneHandle>& lanes);
-
 protected:
 
 	//----------------------------------------------------------\\
@@ -120,6 +116,8 @@ protected:
 
 	//Map of all agents and their navigation data
 	TMap<AActor*, FAgentNavigationData> m_MapAgentNavigationData;
+
+	TMap<FZoneGraphLaneHandle, UATS_TrafficAwarenessComponent*> m_MapTrafficObjects;
 
 	TMap<FZoneGraphLaneHandle, AATS_BaseTrafficRuler*> m_MapLaneRuler;
 	float m_SearchDistance{ 1000.f };
