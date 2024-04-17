@@ -107,13 +107,13 @@ protected:
 	bool bIsDisabled{ false };
 
 	UPROPERTY(EditAnywhere, Category = "AgentNavigation|vehicle")
-	bool bIsPhysicsBased{ false };
+	bool bIsPhysicsBased{ true };
 
 	UPROPERTY(EditAnywhere, Category = "AgentNavigation|vehicle")
 	bool bIsParked{ false };
 
 	UPROPERTY(EditAnywhere, Category = "AgentNavigation|vehicle")
-	bool bDebug{ true };
+	bool bDebug{ false };
 
 	UPROPERTY(BlueprintReadWrite, Category = "AgentNavigation|vehicle")
 	bool bDrawDebugPath{ false };	

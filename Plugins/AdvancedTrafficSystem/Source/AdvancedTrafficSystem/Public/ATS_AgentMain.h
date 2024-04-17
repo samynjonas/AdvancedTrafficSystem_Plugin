@@ -24,6 +24,7 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	FVector GetDistanceCheckOffset() const { return m_DistanceCheckOffset; }
 
 	float GetHighDetailDistance() const { return m_HighDetailDistance; }
 	float GetHighDetailSquaredDistance() const { return m_HighDetailDistanceSquared; }
@@ -61,4 +62,5 @@ protected:
 
 	int m_AgentLoss{ 0 };
 
+	FVector m_DistanceCheckOffset{ FVector::ZeroVector };
 };

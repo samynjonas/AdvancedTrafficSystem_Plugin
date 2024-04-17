@@ -32,10 +32,9 @@ void UATS_AgentMain::BeginPlay()
 
 	if (bUseBoxXForDistance || bUseBoxYForDistance || bUseBoxZForDistance)
 	{
-		FVector origin{ FVector::ZeroVector };
 		FVector extents{ FVector::ZeroVector };
 
-		GetOwner()->GetActorBounds(false, origin, extents, true);
+		GetOwner()->GetActorBounds(false, m_DistanceCheckOffset, extents, true);
 
 		if (bUseBoxXForDistance)
 		{

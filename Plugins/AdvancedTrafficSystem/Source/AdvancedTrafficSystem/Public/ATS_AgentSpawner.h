@@ -12,6 +12,7 @@ class UZoneShapeComponent;
 class AATS_TrafficManager;
 class UATS_AgentMain;
 class AATS_NavigationGoal;
+class UBoxComponent;
 
 USTRUCT()
 struct FSpawnBox
@@ -88,8 +89,9 @@ protected:
 	FVector GenerateRandomPointWithinBoundingBox() const;
 	FVector GenerateRandomPointOnEdgeOfBoundingBox() const;
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Spawner")
-	void SpawnAgentAtLocation(FVector position, FVector direction, bool& succesfullySpawned);
+	bool SpawnAgentAtLocation(FVector position, FVector direction);
+
+	bool ValidateSpawnedAgent(AActor* pAgent);
 
 	bool IsLocationOccupied(const FVector& Location) const;
 
@@ -104,19 +106,18 @@ public:
 
 	void RegisterAgentLoss(int count = 1);
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Spawner")
-	void SpawnAgentWithNavigationGoals(AATS_NavigationGoal* pHome, AATS_NavigationGoal* pWork);
+	UFUNCTION(BlueprintCallable, Category = "Spawner")
+	bool SpawnAgentWithNavigationGoals(AATS_NavigationGoal* pHome, AATS_NavigationGoal* pWork);
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Spawner")
-	void SpawnAgentAtHome(AATS_NavigationGoal* pHome);
+	UFUNCTION(BlueprintCallable, Category = "Spawner")
+	bool SpawnAgentAtHome(AATS_NavigationGoal* pHome);
 
 protected:
+	int m_SpawnedAgents{ 0 };
+	bool bIsInitialized{ false };
+
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	int m_AgentCount{ 0 };
-	
-	int m_SpawnedAgents{ 0 };
-
-	AATS_TrafficManager* m_pTrafficManager;
 
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	bool bUpdateOnTick{ false };
@@ -124,7 +125,15 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	bool bDebug{ false };
 
-	bool bIsInitialized{ false };
+	//Array of actor classes that can be spawned
+	UPROPERTY(EditAnywhere, Category = "Settings")
+	TArray<TSubclassOf<AActor>> _ArrAgentClasses{};
 
-	UATS_AgentMain* m_pAgentMain;
+	AATS_TrafficManager* m_pTrafficManager{ nullptr };
+
+	UPROPERTY(EditAnywhere, Category = "Settings|Components")
+	UATS_AgentMain* _AgentMain{ nullptr };
+
+	UPROPERTY(EditAnywhere, Category = "Settings|Components")
+	UBoxComponent* _BoxComponent{ nullptr };
 };
