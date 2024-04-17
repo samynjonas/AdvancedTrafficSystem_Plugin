@@ -42,6 +42,6 @@ protected:
 	bool bIsDisabled{ false };
 
 	UPROPERTY(EditAnywhere, Category = "Agent")
-	bool bDebug{ false };
+	bool bDebug{ true };
 
 };

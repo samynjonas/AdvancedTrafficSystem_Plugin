@@ -12,7 +12,9 @@ class UZoneShapeComponent;
 class AATS_TrafficManager;
 class UATS_AgentMain;
 class AATS_NavigationGoal;
+
 class UBoxComponent;
+class UBillboardComponent;
 
 USTRUCT()
 struct FSpawnBox
@@ -143,9 +145,15 @@ protected:
 
 	AATS_TrafficManager* m_pTrafficManager{ nullptr };
 
+
+
+
 	UPROPERTY(EditAnywhere, Category = "SpawnerComponents")
 	UATS_AgentMain* _AgentMain{ nullptr };
 
 	UPROPERTY(EditAnywhere, Category = "SpawnerComponents")
 	UBoxComponent* _BoxComponent{ nullptr };
+
+	UPROPERTY(EditAnywhere, Category = "SpawnerComponents")
+	UBillboardComponent* _BillBoardComponent{ nullptr };
 };

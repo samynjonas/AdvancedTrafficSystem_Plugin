@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "ATS_AgentMain.generated.h"
 
+class UBoxComponent;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class ADVANCEDTRAFFICSYSTEM_API UATS_AgentMain : public UActorComponent
@@ -20,11 +21,13 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
+	bool RetrieveBoxComponent();
+
 public:	
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	FVector GetDistanceCheckOffset() const { return m_DistanceCheckOffset; }
+	FVector GetOrigin() const;
 
 	float GetHighDetailDistance() const { return m_HighDetailDistance; }
 	float GetHighDetailSquaredDistance() const { return m_HighDetailDistanceSquared; }
@@ -39,7 +42,7 @@ public:
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
-	bool bUseBoxXForDistance{ false };
+	bool bUseBoxXForDistance{ true };
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
 	bool bUseBoxYForDistance{ false };
@@ -58,9 +61,10 @@ protected:
 	float m_LowDetailDistanceSquared{ 0.f };
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
-	bool bDebug{ false };
+	bool bDebug{ true };
 
 	int m_AgentLoss{ 0 };
 
-	FVector m_DistanceCheckOffset{ FVector::ZeroVector };
+	FVector m_Origin{ FVector::ZeroVector };
+	UBoxComponent* m_pBoxComponent{ nullptr };
 };

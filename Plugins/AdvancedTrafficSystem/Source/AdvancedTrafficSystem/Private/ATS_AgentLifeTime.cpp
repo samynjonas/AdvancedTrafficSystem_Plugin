@@ -51,11 +51,16 @@ void UATS_AgentLifeTime::DistanceToMainAgentCheck()
 		return;
 	}
 
-	float distance = GetOwner()->GetSquaredDistanceTo(m_AgentMain->GetOwner());
+	FVector agentLocation		= GetOwner()->GetActorLocation();
+	FVector mainAgentLocation	= m_AgentMain->GetOrigin();
+	UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::DistanceToMainAgentCheck() -- MainAgent Location: %s"), *mainAgentLocation.ToString());
+
+	float distance = FVector::DistSquared(agentLocation, mainAgentLocation);
 	if (bDebug)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::DistanceToMainAgentCheck() -- Distance to main agent: %f"), distance);
 		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::DistanceToMainAgentCheck() -- Distance to LowDetail Distance: %f"), m_AgentMain->GetLowDetailSquaredDistance());
+		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::DistanceToMainAgentCheck() -- Distance to HighDetail Distance: %f"), m_AgentMain->GetHighDetailSquaredDistance());
 	}
 
 	if (distance > m_AgentMain->GetHighDetailSquaredDistance())

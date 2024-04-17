@@ -14,6 +14,7 @@
 #include "ZoneShapeComponent.h"
 
 #include "Components/BoxComponent.h"
+#include "Components/BillboardComponent.h"
 
 #include "DrawDebugHelpers.h"
 
@@ -21,8 +22,11 @@ AATS_AgentSpawner::AATS_AgentSpawner()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	//Setup
-	_BoxComponent	= CreateDefaultSubobject<UBoxComponent>(  TEXT("SpawnRangeBox") );
+	_BillBoardComponent = CreateDefaultSubobject<UBillboardComponent>( TEXT("Billboard") );
+	_BillBoardComponent->SetupAttachment(RootComponent);
+
+	_BoxComponent = CreateDefaultSubobject<UBoxComponent>(  TEXT("SpawnRangeBox") );
+	_BoxComponent->SetupAttachment(_BillBoardComponent);
 	_BoxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	_AgentMain		= CreateDefaultSubobject<UATS_AgentMain>( TEXT("ATS_AgentMain") );
@@ -141,8 +145,14 @@ FSpawnBox AATS_AgentSpawner::GetSpawnBox() const
 {
 	FSpawnBox spawnBox{};
 
+	if (_BoxComponent)
+	{
+		spawnBox.origin = _BoxComponent->GetComponentLocation();
+		spawnBox.extent = _BoxComponent->GetScaledBoxExtent();
+		return spawnBox;
+	}
+
 	GetActorBounds(false, spawnBox.origin, spawnBox.extent, true);
-	
 	return spawnBox;
 }
 

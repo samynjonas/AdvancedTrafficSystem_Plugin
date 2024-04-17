@@ -2,6 +2,7 @@
 
 
 #include "../Public/ATS_AgentMain.h"
+#include "Components/BoxComponent.h"
 
 UATS_AgentMain::UATS_AgentMain()
 {
@@ -24,6 +25,35 @@ UATS_AgentMain::UATS_AgentMain()
 	}
 }
 
+bool UATS_AgentMain::RetrieveBoxComponent()
+{
+	m_pBoxComponent = GetOwner()->FindComponentByClass<UBoxComponent>();
+	if (m_pBoxComponent == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AgentMain::RetrieveBoxComponent() -- Box component not found"));
+		return false;
+	}
+
+	//Print box information
+	if (bDebug)
+	{
+		FVector origin = m_pBoxComponent->GetComponentLocation();
+		FVector extent = m_pBoxComponent->GetScaledBoxExtent();
+		UE_LOG(LogTemp, Warning, TEXT("AgentMain::RetrieveBoxComponent() -- Origin: %f, %f, %f"), origin.X, origin.Y, origin.Z);
+		UE_LOG(LogTemp, Warning, TEXT("AgentMain::RetrieveBoxComponent() -- Extent: %f, %f, %f"), extent.X, extent.Y, extent.Z);
+	}
+
+	return true;
+}
+
+FVector UATS_AgentMain::GetOrigin() const
+{
+	if (m_pBoxComponent)
+	{
+		return m_pBoxComponent->GetComponentLocation();
+	}
+	return m_Origin;
+}
 
 // Called when the game starts
 void UATS_AgentMain::BeginPlay()
@@ -34,7 +64,16 @@ void UATS_AgentMain::BeginPlay()
 	{
 		FVector extents{ FVector::ZeroVector };
 
-		GetOwner()->GetActorBounds(false, m_DistanceCheckOffset, extents, true);
+		if (RetrieveBoxComponent() && m_pBoxComponent)
+		{
+			extents		= m_pBoxComponent->GetScaledBoxExtent();
+			m_Origin	= m_pBoxComponent->GetComponentLocation();
+		}
+		else
+		{
+			GetOwner()->GetActorBounds(false, m_Origin, extents, true);
+		}
+
 
 		if (bUseBoxXForDistance)
 		{
