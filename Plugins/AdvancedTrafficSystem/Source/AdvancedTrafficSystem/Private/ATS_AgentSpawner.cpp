@@ -52,11 +52,23 @@ void AATS_AgentSpawner::Initialize()
 		}
 	}
 
+	//Get Box from spawner actor
+	//GetSpawnBox();
+
 	SpawnAgents();
 
 	m_pAgentMain = GetComponentByClass<UATS_AgentMain>();
 
 	bIsInitialized = true;
+}
+
+FSpawnBox AATS_AgentSpawner::GetSpawnBox() const
+{
+	FSpawnBox spawnBox{};
+
+	GetActorBounds(false, spawnBox.origin, spawnBox.extent, true);
+	
+	return spawnBox;
 }
 
 // Called every frame
@@ -104,14 +116,9 @@ void AATS_AgentSpawner::SpawnAgents()
 // Helper function to generate a random point within a 2D bounding box
 FVector AATS_AgentSpawner::GenerateRandomPointWithinBoundingBox() const
 {
-	float randomX = FMath::RandRange(0.f, static_cast<float>(m_BoundingBox.X));
-	float randomY = FMath::RandRange(0.f, static_cast<float>(m_BoundingBox.Y));
+	FSpawnBox spawnBox{ GetSpawnBox() };
 
-	FVector randomPoint{ GetActorLocation() };
-	randomPoint.X += randomX;
-	randomPoint.Y += randomY;
-
-	return randomPoint;
+	return spawnBox.GetRandomPoint();
 }
 
 void AATS_AgentSpawner::RegisterAgentLoss(int count)

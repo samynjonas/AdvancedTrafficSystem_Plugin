@@ -13,6 +13,30 @@ class AATS_TrafficManager;
 class UATS_AgentMain;
 class AATS_NavigationGoal;
 
+USTRUCT()
+struct FSpawnBox
+{
+	GENERATED_BODY()
+
+	FVector origin{};
+	FVector extent{};
+
+	FSpawnBox() = default;
+
+	FVector GetRandomPoint(bool zeroZ = true) const
+	{
+		FVector randomPoint{ FVector(FMath::RandRange(origin.X - extent.X, origin.X + extent.X), FMath::RandRange(origin.Y - extent.Y, origin.Y + extent.Y), FMath::RandRange(origin.Z - extent.Z, origin.Z + extent.Z)) };
+		
+		if (zeroZ)
+		{
+			randomPoint.Z = 0.0f;
+		
+		}
+		return randomPoint;
+	}
+
+};
+
 UCLASS()
 class ADVANCEDTRAFFICSYSTEM_API AATS_AgentSpawner : public AActor
 {
@@ -27,6 +51,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	void Initialize();
+	FSpawnBox GetSpawnBox() const;
 
 	void SpawnAgents();
 	FVector GenerateRandomPointWithinBoundingBox() const;
@@ -60,9 +85,6 @@ protected:
 	int m_SpawnedAgents{ 0 };
 
 	AATS_TrafficManager* m_pTrafficManager;
-
-	UPROPERTY(EditAnywhere, Category = "Settings")
-	FVector2D m_BoundingBox{};
 
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	bool bUpdateOnTick{ false };
