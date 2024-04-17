@@ -83,6 +83,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	void Initialize();
+	void AttachSpawnerToActor();
 	FSpawnBox GetSpawnBox() const;
 
 	void SpawnAgents(bool fillBox);
@@ -116,24 +117,35 @@ protected:
 	int m_SpawnedAgents{ 0 };
 	bool bIsInitialized{ false };
 
-	UPROPERTY(EditAnywhere, Category = "Settings")
+	UPROPERTY(EditAnywhere, Category = "SpawnerSettings", DisplayName = "Amount of agent to spawn")
 	int m_AgentCount{ 0 };
 
-	UPROPERTY(EditAnywhere, Category = "Settings")
+	UPROPERTY(EditAnywhere, Category = "SpawnerSettings", DisplayName = "Keep spawning during runtime")
 	bool bUpdateOnTick{ false };
 
-	UPROPERTY(EditAnywhere, Category = "Settings")
+	UPROPERTY(EditAnywhere, Category = "SpawnerSettings|Debugging", DisplayName = "Enable debugging")
 	bool bDebug{ false };
 
-	//Array of actor classes that can be spawned
-	UPROPERTY(EditAnywhere, Category = "Settings")
+	UPROPERTY(EditAnywhere, Category = "SpawnerSettings", DisplayName = "Actors to pick from to spawn")
 	TArray<TSubclassOf<AActor>> _ArrAgentClasses{};
+
+	UPROPERTY(EditAnywhere, Category = "Attachment Settings", DisplayName = "Attach to an actor")
+	bool bAttachToActor{ false };
+
+	UPROPERTY(EditAnywhere, Category = "Attachment Settings", meta = (EditCondition = "bAttachToActor", DisplayName = "Actor to attach to"))
+	AActor* _pAttachToActor{ nullptr };
+	
+	UPROPERTY(EditAnywhere, Category = "Attachment Settings", meta = (EditCondition = "bAttachToActor", DisplayName = "Attach to a component"))
+	bool bAttachToActorComponent{ false };
+
+	UPROPERTY(EditAnywhere, Category = "Attachment Settings", meta = (EditCondition = "bAttachToActor && bAttachToActorComponent", DisplayName = "Component to attach to"))
+	FString _pComponentNameToAttach{ "" };	
 
 	AATS_TrafficManager* m_pTrafficManager{ nullptr };
 
-	UPROPERTY(EditAnywhere, Category = "Settings|Components")
+	UPROPERTY(EditAnywhere, Category = "SpawnerComponents")
 	UATS_AgentMain* _AgentMain{ nullptr };
 
-	UPROPERTY(EditAnywhere, Category = "Settings|Components")
+	UPROPERTY(EditAnywhere, Category = "SpawnerComponents")
 	UBoxComponent* _BoxComponent{ nullptr };
 };

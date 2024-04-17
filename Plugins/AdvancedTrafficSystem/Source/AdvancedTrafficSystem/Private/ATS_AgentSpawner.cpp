@@ -33,7 +33,67 @@ void AATS_AgentSpawner::BeginPlay()
 {
 	Super::BeginPlay();
 
+	AttachSpawnerToActor();
 	Initialize();
+}
+
+void AATS_AgentSpawner::AttachSpawnerToActor()
+{
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::AttachSpawnerToActor() -- Attaching spawner to actor..."));
+	}
+
+	if (bAttachToActor == false)
+	{
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::AttachSpawnerToActor() -- Not attaching to an actor"));
+		}
+		return;
+	}
+
+	if (_pAttachToActor == nullptr)
+	{
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::AttachSpawnerToActor() -- Can't attach to NULL actor"));
+		}
+		return;
+	}
+
+	FAttachmentTransformRules attachRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, false);
+	
+	if (bAttachToActorComponent && _pComponentNameToAttach.IsEmpty() == false)
+	{		
+		USceneComponent* pComponentToAttachTo = FindObject<USceneComponent>(_pAttachToActor, *_pComponentNameToAttach);
+		if (pComponentToAttachTo)
+		{
+			if (AttachToComponent(pComponentToAttachTo, attachRules))
+			{
+				if (bDebug)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::AttachSpawnerToActor() -- Attached to component: %s"), *_pComponentNameToAttach);
+				}
+				return;
+			}
+		}
+	}
+
+	if (AttachToActor(_pAttachToActor, attachRules))
+	{
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::AttachSpawnerToActor() -- Attached to actor: %s"), *_pAttachToActor->GetName());
+		}
+		return;
+	}
+
+	//Everything failed
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::AttachSpawnerToActor() -- Failed to attach to actor: %s"), *_pAttachToActor->GetName());
+	}
 }
 
 void AATS_AgentSpawner::Initialize()
