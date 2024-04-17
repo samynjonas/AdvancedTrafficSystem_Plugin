@@ -38,12 +38,26 @@ public:
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
+	bool bUseBoxXForDistance{ false };
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
+	bool bUseBoxYForDistance{ false };
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
+	bool bUseBoxZForDistance{ false };
+
+	FVector m_BoxExtentUsage{ 0.f, 0.f, 0.f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
 	float m_HighDetailDistance{ 7500.f };
 	float m_HighDetailDistanceSquared{ 0.f };
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
 	float m_LowDetailDistance{ 15000.f };
 	float m_LowDetailDistanceSquared{ 0.f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Agent")
+	bool bDebug{ false };
 
 	int m_AgentLoss{ 0 };
 

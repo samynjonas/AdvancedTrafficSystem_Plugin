@@ -38,5 +38,9 @@ protected:
 
 	float m_ElapsedTime{};
 
-	bool bIsDisabled{ true };		
+	UPROPERTY(EditAnywhere, Category = "Agent")
+	bool bIsDisabled{ true };
+
+	UPROPERTY(EditAnywhere, Category = "Agent")
+	bool bDebug{ false };
 };

@@ -35,6 +35,37 @@ struct FSpawnBox
 		return randomPoint;
 	}
 
+	FVector GetRandomPointOnEdge() const
+	{
+		FVector randomPoint{ FVector::ZeroVector };
+
+		//Pick a point on the edge of the box
+		int FrontSideEdge = FMath::RandRange(0, 1);
+		if (FrontSideEdge == 0)
+		{
+			//Pick front or back edge
+			int FrontBackEdge = FMath::RandRange(0, 1);
+			if (FrontBackEdge == 0)
+			{
+				FrontBackEdge = -1;
+			}
+
+			randomPoint = FVector(FMath::RandRange(origin.X - extent.X, origin.X + extent.X), origin.Y + (extent.Y * FrontBackEdge), 0.f);
+		}
+		else
+		{
+			//Pick left or right edge
+			int LeftRightEdge = FMath::RandRange(0, 1);
+			if (LeftRightEdge == 0)
+			{
+				LeftRightEdge = -1;
+			}
+
+			randomPoint = FVector(origin.X + (extent.X * LeftRightEdge), FMath::RandRange(origin.Y - extent.Y, origin.Y + extent.Y), 0.f);
+		}		
+		
+		return randomPoint;
+	}
 };
 
 UCLASS()
@@ -53,11 +84,12 @@ protected:
 	void Initialize();
 	FSpawnBox GetSpawnBox() const;
 
-	void SpawnAgents();
+	void SpawnAgents(bool fillBox);
 	FVector GenerateRandomPointWithinBoundingBox() const;
+	FVector GenerateRandomPointOnEdgeOfBoundingBox() const;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Spawner")
-	void SpawnAgentAtLocation(FVector position, FVector direction);
+	void SpawnAgentAtLocation(FVector position, FVector direction, bool& succesfullySpawned);
 
 	bool IsLocationOccupied(const FVector& Location) const;
 
@@ -88,6 +120,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	bool bUpdateOnTick{ false };
+
+	UPROPERTY(EditAnywhere, Category = "Settings")
+	bool bDebug{ false };
 
 	bool bIsInitialized{ false };
 

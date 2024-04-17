@@ -11,10 +11,8 @@
 
 #include "DrawDebugHelpers.h"
 
-// Sets default values
 AATS_AgentSpawner::AATS_AgentSpawner()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 }
 
@@ -28,6 +26,11 @@ void AATS_AgentSpawner::BeginPlay()
 
 void AATS_AgentSpawner::Initialize()
 {
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::Initialize() -- Initializing AgentSpawner..."));
+	}
+
 	//Get TrafficManager and make sure it's initialzed already
 	TArray<AActor*> pTrafficManagers;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AATS_TrafficManager::StaticClass(), pTrafficManagers);
@@ -52,10 +55,7 @@ void AATS_AgentSpawner::Initialize()
 		}
 	}
 
-	//Get Box from spawner actor
-	//GetSpawnBox();
-
-	SpawnAgents();
+	SpawnAgents(true);
 
 	m_pAgentMain = GetComponentByClass<UATS_AgentMain>();
 
@@ -81,12 +81,12 @@ void AATS_AgentSpawner::Tick(float DeltaTime)
 		CheckForAgentLoss();
 		if (m_SpawnedAgents < m_AgentCount)
 		{
-			SpawnAgents();
+			SpawnAgents(false);
 		}
 	}	
 }
 
-void AATS_AgentSpawner::SpawnAgents()
+void AATS_AgentSpawner::SpawnAgents(bool fillBox)
 {
 	// Check if TrafficManager is available
 	if (m_pTrafficManager == nullptr)
@@ -97,19 +97,56 @@ void AATS_AgentSpawner::SpawnAgents()
 	for (int i = 0; i < m_AgentCount; ++i)
 	{
 		// Place a random point within the zone shape
-		FVector randomPoint = GenerateRandomPointWithinBoundingBox();
-		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::Random point: %s"), *randomPoint.ToString());
+		FVector randomPoint = GetActorLocation();
+		if(fillBox == true)
+		{
+			//Random points will be inside the bounding box of the actor
+			randomPoint = GenerateRandomPointWithinBoundingBox();
+		}
+		else
+		{
+			//Random points on the outer edge of the bounding box of the actor
+			randomPoint = GenerateRandomPointOnEdgeOfBoundingBox();
+		}
+
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::SpawnAgents() -- Random point: %s"), *randomPoint.ToString());
+		}
 
 		// Find the closest point on a lane
 		FAgentPoint closestPointOnLane = m_pTrafficManager->GetClosestPointOnLane(FBox(randomPoint - FVector(1000), randomPoint + FVector(1000)), FZoneGraphTagFilter(), randomPoint);
 		
-		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::Closest point on lane: %s"), *closestPointOnLane.position.ToString());
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::SpawnAgents() -- Closest point on lane: %s"), *closestPointOnLane.position.ToString());
+		}
+
 		if (!IsLocationOccupied(closestPointOnLane.position))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::Spawning agent at: %s"), *closestPointOnLane.position.ToString());
-			SpawnAgentAtLocation(closestPointOnLane.position, closestPointOnLane.direction);
-			m_SpawnedAgents++;
+			if (bDebug)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::SpawnAgents() -- Spawning agent at: %s"), *closestPointOnLane.position.ToString());
+			}
+
+			bool bSuccess{ false };
+			SpawnAgentAtLocation(closestPointOnLane.position, closestPointOnLane.direction, bSuccess);
+			if (bSuccess)
+			{
+				m_SpawnedAgents++;
+				UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::SpawnAgents() -- succesfully spawned agents: %d"), m_SpawnedAgents);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::SpawnAgents() -- failed to spawn agent"));
+			}
 		}
+	}
+
+
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::SpawnAgents() -- Spawned agents: %d"), m_SpawnedAgents);
 	}
 }
 
@@ -121,9 +158,20 @@ FVector AATS_AgentSpawner::GenerateRandomPointWithinBoundingBox() const
 	return spawnBox.GetRandomPoint();
 }
 
+FVector AATS_AgentSpawner::GenerateRandomPointOnEdgeOfBoundingBox() const
+{
+	FSpawnBox spawnBox{ GetSpawnBox() };
+
+	return spawnBox.GetRandomPointOnEdge();
+}
+
 void AATS_AgentSpawner::RegisterAgentLoss(int count)
 {
 	m_SpawnedAgents -= count;
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::RegisterAgentLoss() -- Lost agents: %d -> New agent count: %d"), count, m_SpawnedAgents);
+	}
 }
 
 void AATS_AgentSpawner::CheckForAgentLoss()
@@ -140,11 +188,17 @@ FTransform AATS_AgentSpawner::GetClosestLanePoint(const FVector& Location, float
 	FTransform safeLocation{};
 	if (m_pTrafficManager == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::TrafficManager is nullptr"));
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::GetClosestLanePoint() -- TrafficManager is nullptr"));
+		}
 		Initialize();
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::Getting closest lane point"));
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentSpawner::GetClosestLanePoint() -- Getting closest lane point"));
+	}
 
 	safeLocation = m_pTrafficManager->GetClosestLanePoint(Location, searchDistance);
 	return safeLocation;
@@ -152,14 +206,12 @@ FTransform AATS_AgentSpawner::GetClosestLanePoint(const FVector& Location, float
 
 bool AATS_AgentSpawner::IsLocationOccupied(const FVector& Location) const
 {
-	//TODO FIX this
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
 	FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(50.f, 50.f, 50.f));
 
-	// Add a debug draw to visualize the overlap check
-	if (GEngine)
+	if (bDebug)
 	{
 		DrawDebugBox(GetWorld(), Location, CollisionShape.GetExtent(), FColor::Red, false, 10.0f, 0, 1);
 	}

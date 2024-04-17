@@ -30,7 +30,11 @@ void UATS_AgentLifeTime::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 	m_ElapsedTime += DeltaTime;
 	if (m_ElapsedTime > m_DistanceCheckInterval)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::Distance check"));
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::TickComponent() -- Distance check"));
+		}
+
 		m_ElapsedTime = 0.f;
 		DistanceToMainAgentCheck();
 	}
@@ -40,18 +44,28 @@ void UATS_AgentLifeTime::DistanceToMainAgentCheck()
 {
 	if (m_AgentMain == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::Main agent is null"));
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::DistanceToMainAgentCheck() -- Main agent is null"));
+		}
 		return;
 	}
 
 	float distance = GetOwner()->GetSquaredDistanceTo(m_AgentMain->GetOwner());
-	UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::Distance to main agent: %f"), distance);
-	UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::Distance to LowDetail Distance: %f"), m_AgentMain->GetLowDetailSquaredDistance());
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::DistanceToMainAgentCheck() -- Distance to main agent: %f"), distance);
+		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::DistanceToMainAgentCheck() -- Distance to LowDetail Distance: %f"), m_AgentMain->GetLowDetailSquaredDistance());
+	}
 
 	if (distance > m_AgentMain->GetHighDetailSquaredDistance())
 	{
 		//To far away -- nothing to show
-		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::Too far away -- remove"));
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::DistanceToMainAgentCheck() -- Too far away -- remove"));
+		}
+
 		GetOwner()->Destroy();
 		m_AgentMain->RegisterAgentLoss();
 	}
@@ -61,7 +75,7 @@ void UATS_AgentLifeTime::SetMainAgent(UATS_AgentMain* pAgentMain)
 {
 	if (pAgentMain == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::Main agent is null"));
+		UE_LOG(LogTemp, Warning, TEXT("AgentLifeTime::SetMainAgent() -- Main agent is null"));
 		return;
 	}
 
