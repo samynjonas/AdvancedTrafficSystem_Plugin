@@ -71,16 +71,16 @@ protected:
 // Debugging
 //---------------------------------------------------
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug", DisplayName = "Debug to console")
 	bool _bDebug{ false };
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug", DisplayName = "Draw debug lines")
 	bool _bDrawDebug{ false };
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug", meta = (EditCondition = "_bDrawDebug", DisplayName = "Debug drawings color"))
 	FColor _DebugColor{ FColor::Green };
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug", meta = (EditCondition = "_bDrawDebug", DisplayName = "Debug drawings color"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug", meta = (EditCondition = "_bDrawDebug", DisplayName = "Debug drawings time"))
 	float _DebugDrawTime{ 2.0f };
 
 };
