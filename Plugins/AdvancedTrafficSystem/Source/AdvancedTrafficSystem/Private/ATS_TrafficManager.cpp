@@ -705,16 +705,31 @@ FVector AATS_TrafficManager::GetTrafficAwareNavigationPoint(UATS_AgentNavigation
         }
     }
 
+    UATS_TrafficAwarenessComponent* pClosestAgentChangingObject{ nullptr };
+    float closestAgentChangingObjectDistance{ MAX_FLT };
+
     for (auto* object : pZoneShapeAgentContainer->GetTrafficObjects())
     {
-        //Check if agent is in front of the current agent
         float objectDistanceOnSpline = object->GetDistanceAlongLane();
         float objectlength{ 10 };
+        
+        //Check if agent is in front of the current agent
+        if (object->CanAgentPass())
+        {
+            //Agent hasn't passed the object yet
+            if (objectDistanceOnSpline > agentData.agentDistanceOnSpline)
+            {
+                continue;
+            }
 
-        if(object->CanAgentPass())
-		{
-			continue;
-		}
+            float distanceToAgent = FMath::Abs(objectDistanceOnSpline - agentData.agentDistanceOnSpline);
+            if (distanceToAgent < closestAgentChangingObjectDistance)
+            {
+				closestAgentChangingObjectDistance = distanceToAgent;
+				pClosestAgentChangingObject = object;
+			}
+            continue;
+        }
 
         if (agentData.agentDistanceOnSpline < objectDistanceOnSpline)
         {
@@ -727,9 +742,13 @@ FVector AATS_TrafficManager::GetTrafficAwareNavigationPoint(UATS_AgentNavigation
 
                 closestObject = objectLaneLocation.Position;
                 break;
-                //return agentLaneLocation.Position;
             }
         }
+    }
+
+    if (pClosestAgentChangingObject != nullptr)
+    {
+        pClosestAgentChangingObject->AdjustAgent(pAgent->GetOwner());
     }
 
     if(closestAgent != FVector::ZeroVector && closestObject == FVector::ZeroVector)
@@ -823,7 +842,6 @@ FVector AATS_TrafficManager::GetTrafficAwareNavigationPoint(UATS_AgentNavigation
 
                 closestObject = objectLaneLocation.Position;
                 break;
-                //return agentLaneLocation.Position;
             }
         }
     }
@@ -1133,7 +1151,6 @@ bool AATS_TrafficManager::RegisterTrafficObject(UATS_TrafficAwarenessComponent* 
 
     return true;
 }
-
 
 void AATS_TrafficManager::Debugging()
 {

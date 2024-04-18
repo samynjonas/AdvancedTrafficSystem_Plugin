@@ -77,6 +77,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AgentNavigation")
 	void VisualizePath(bool isVisible);
 
+	UFUNCTION(BlueprintCallable, Category = "AgentNavigation")
+	void SetMaxSpeed(float speed);
+	
+	UFUNCTION(BlueprintCallable, Category = "AgentNavigation")
+	float GetMaxSpeed() const { return m_MaxSpeedkmph; }
+
 protected:
 	AATS_TrafficManager* m_pTrafficManager;
 	UChaosVehicleMovementComponent* m_pVehicleComponent;	

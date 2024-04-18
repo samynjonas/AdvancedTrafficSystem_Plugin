@@ -48,9 +48,8 @@ void UATS_AgentNavigation::BeginPlay()
 		bIsPhysicsBased = false;
 	}
 
-	m_MaxSpeedUnrealunits	= m_MaxSpeedkmph / 0.036f;
-	m_DesiredSpeed			= m_MaxSpeedUnrealunits;
-
+	SetMaxSpeed(m_MaxSpeedkmph);
+	
 	m_AgentData.bFollowsSpline			= true;
 	m_AgentData.agentTransform			= GetOwner()->GetActorTransform();
 	m_AgentData.agentSpeed				= 0.f;
@@ -114,6 +113,13 @@ void UATS_AgentNavigation::OnComponentDestroyed(bool bDestroyingHierarchy)
 		}
 		m_pTrafficManager->UnregisterAgent(GetOwner(), this);
 	}
+}
+
+void UATS_AgentNavigation::SetMaxSpeed(float speedLimit)
+{
+	m_MaxSpeedkmph			= speedLimit;
+	m_MaxSpeedUnrealunits	= m_MaxSpeedkmph / 0.036f;
+	m_DesiredSpeed			= m_MaxSpeedUnrealunits;
 }
 
 bool UATS_AgentNavigation::MoveToNextPoint(float deltaTime)

@@ -42,7 +42,7 @@ public:
 	float GetDistanceAlongLane() const { return _DistanceAlongLane; }
 
 	bool CanAgentPass() const { return _bCanAgentPass; }
-	bool AdjustAgent(AActor* pAgent);
+	virtual bool AdjustAgent(AActor* pAgent);
 
 //---------------------------------------------------
 // Code Variables

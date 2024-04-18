@@ -21,11 +21,6 @@ void UATS_TrafficAwarenessComponent::TickComponent(float DeltaTime, ELevelTick T
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (_bDebug)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::TickComponent() -- Ticking..."));
-	}
-
 	//No need to tick if the actor is not moveable
 	if (_bIsMoveable == false)
 	{
