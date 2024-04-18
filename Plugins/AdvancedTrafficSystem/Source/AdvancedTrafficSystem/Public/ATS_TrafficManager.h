@@ -117,8 +117,6 @@ protected:
 	//Map of all agents and their navigation data
 	TMap<AActor*, FAgentNavigationData> m_MapAgentNavigationData;
 
-	TMap<FZoneGraphLaneHandle, UATS_TrafficAwarenessComponent*> m_MapTrafficObjects;
-
 	TMap<FZoneGraphLaneHandle, AATS_BaseTrafficRuler*> m_MapLaneRuler;
 	float m_SearchDistance{ 1000.f };
 };

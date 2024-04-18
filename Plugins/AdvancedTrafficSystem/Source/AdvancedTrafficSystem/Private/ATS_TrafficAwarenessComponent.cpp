@@ -8,7 +8,7 @@
 
 UATS_TrafficAwarenessComponent::UATS_TrafficAwarenessComponent()
 {
-	PrimaryComponentTick.bCanEverTick = _bIsMoveable;
+	PrimaryComponentTick.bCanEverTick = true;
 }
 
 void UATS_TrafficAwarenessComponent::BeginPlay()
@@ -20,12 +20,64 @@ void UATS_TrafficAwarenessComponent::BeginPlay()
 void UATS_TrafficAwarenessComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
+
+	if (_bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::TickComponent() -- Ticking..."));
+	}
+
 	//No need to tick if the actor is not moveable
 	if (_bIsMoveable == false)
 	{
 		return;
 	}
+
+	UpdateLocation();
+}
+
+bool UATS_TrafficAwarenessComponent::UpdateLocation()
+{
+	//Check if the actor has moved
+	FVector currentLocation = GetOwner()->GetActorLocation();
+	if(FVector::DistSquared(currentLocation, _LastLocation) < 0.01f)
+	{
+		//Object has not moved
+		if (_bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::UpdateLocation() -- Object has not moved!"));
+		}
+		return false;
+	}
+
+	if(_pTrafficManager == nullptr)
+	{
+		if(_bDebug)
+		{
+			UE_LOG(LogTemp, Error, TEXT("TrafficAwarenessComponent::UpdateLocation() -- TrafficManager not found!"));
+		}
+		return false;
+	}
+
+	if (_pTrafficManager->IsInitialized() == false)
+	{
+		_pTrafficManager->Initialize();
+	}
+
+	if (_bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::UpdateLocation() -- Updating location..."));
+	}
+	_pTrafficManager->RegisterTrafficObject(this, _ConnectionPoint);
+
+	if (_bDrawDebug)
+	{
+		DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), _ConnectionPoint, _DebugColor, false, _DebugDrawTime, 0, 10.0f);
+		DrawDebugPoint(GetWorld(), _ConnectionPoint, 10, _DebugColor, false, _DebugDrawTime);
+	}
+
+	//Update location
+	_LastLocation = currentLocation;
+	return true;
 }
 
 bool UATS_TrafficAwarenessComponent::Initialize()
@@ -75,6 +127,21 @@ bool UATS_TrafficAwarenessComponent::Initialize()
 	}
 
 	//-------------------------------------------------------------------------------------------------
+	// Configure object
+	//-------------------------------------------------------------------------------------------------
+
+	if(_AwarenessType == EATS_AwarenessType::Lane)
+	{
+		_bCanAgentPass = false;
+	}
+	else
+	{
+		_bCanAgentPass = true;
+	}
+
+	_LastLocation = GetOwner()->GetActorLocation();
+
+	//-------------------------------------------------------------------------------------------------
 	// Register this actor to the TrafficManager
 	//-------------------------------------------------------------------------------------------------
 
@@ -98,8 +165,8 @@ bool UATS_TrafficAwarenessComponent::Initialize()
 
 		if (_bDrawDebug)
 		{
-			DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), _ConnectionPoint, _DebugColor, false, 10.0f);
-			DrawDebugPoint(GetWorld(), _ConnectionPoint, 10, _DebugColor, false, 15.0f);
+			DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), _ConnectionPoint, _DebugColor, false, _DebugDrawTime, 0, 10.0f);
+			DrawDebugPoint(GetWorld(), _ConnectionPoint, 10, _DebugColor, false, _DebugDrawTime);
 		}
 	}
 
@@ -107,5 +174,21 @@ bool UATS_TrafficAwarenessComponent::Initialize()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::Initialize() -- Initialized succesfully!"));
 	}
+	return true;
+}
+
+void UATS_TrafficAwarenessComponent::SetDistanceAlongLane(float distanceAlongLane)
+{
+	_DistanceAlongLane = distanceAlongLane;
+}
+
+bool UATS_TrafficAwarenessComponent::AdjustAgent(AActor* pAgent)
+{
+	//This function can be used to adjust to agent depending on this object
+	if(pAgent == nullptr)
+	{
+		return false;
+	}
+
 	return true;
 }

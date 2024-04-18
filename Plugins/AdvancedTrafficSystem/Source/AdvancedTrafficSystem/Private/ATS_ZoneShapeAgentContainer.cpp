@@ -10,14 +10,46 @@ ATS_ZoneShapeAgentContainer::ATS_ZoneShapeAgentContainer()
 
 ATS_ZoneShapeAgentContainer::~ATS_ZoneShapeAgentContainer()
 {
+	m_Agents.Empty();
+	m_TrafficObjects.Empty();
 }
 
-void ATS_ZoneShapeAgentContainer::RegisterAgent(UATS_AgentNavigation* agent)
+bool ATS_ZoneShapeAgentContainer::RegisterAgent(UATS_AgentNavigation* pAgent)
 {
-	m_Agents.Add(agent);
+	if (pAgent == nullptr || m_Agents.Contains(pAgent))
+	{
+		return false;
+	}
+	m_Agents.Add(pAgent);
+	return true;
 }
 
-void ATS_ZoneShapeAgentContainer::UnregisterAgent(UATS_AgentNavigation* agent)
+bool ATS_ZoneShapeAgentContainer::UnregisterAgent(UATS_AgentNavigation* pAgent)
 {
-	m_Agents.Remove(agent);
+	if (pAgent == nullptr || !m_Agents.Contains(pAgent))
+	{
+		return false;
+	}
+	m_Agents.Remove(pAgent);
+	return true;
+}
+
+bool ATS_ZoneShapeAgentContainer::RegisterTrafficObject(UATS_TrafficAwarenessComponent* pTrafficObject)
+{
+	if (pTrafficObject == nullptr || m_TrafficObjects.Contains(pTrafficObject))
+	{
+		return false;
+	}
+	m_TrafficObjects.Add(pTrafficObject);
+	return true;
+}
+
+bool ATS_ZoneShapeAgentContainer::UnregisterTrafficObject(UATS_TrafficAwarenessComponent* pTrafficObject)
+{
+	if (pTrafficObject == nullptr || !m_TrafficObjects.Contains(pTrafficObject))
+	{
+		return false;
+	}
+	m_TrafficObjects.Remove(pTrafficObject);
+	return true;
 }

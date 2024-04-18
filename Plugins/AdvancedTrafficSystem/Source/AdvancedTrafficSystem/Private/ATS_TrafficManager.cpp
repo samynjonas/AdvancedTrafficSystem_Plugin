@@ -655,9 +655,19 @@ FVector AATS_TrafficManager::GetTrafficAwareNavigationPoint(UATS_AgentNavigation
 		return FVector::ZeroVector;
 	}
 
+    //Get the current lane and the next lane
     FZoneGraphLaneHandle currentLaneHandle  = m_MapAgentNavigationData[pAgent->GetOwner()].currentLaneLocation.LaneHandle;
     FZoneGraphLaneHandle nextLaneHandle     = m_MapAgentNavigationData[pAgent->GetOwner()].nextLaneLocation.LaneHandle;
 
+    FVector actorLocation = pAgent->GetOwner()->GetActorLocation();
+    FVector closestAgent{ FVector::ZeroVector };
+    FVector closestObject{ FVector::ZeroVector };
+
+    //-------------------------------------------------------------------------------------------------
+    // Current lane check
+    //-------------------------------------------------------------------------------------------------
+
+    //Check if the lane is in the map
     if (m_pMapZoneShapeAgentContainer.Contains(currentLaneHandle) == false)
     {
         return FVector::ZeroVector;
@@ -666,11 +676,13 @@ FVector AATS_TrafficManager::GetTrafficAwareNavigationPoint(UATS_AgentNavigation
     ATS_ZoneShapeAgentContainer* pZoneShapeAgentContainer = m_pMapZoneShapeAgentContainer[currentLaneHandle].Get();
     for (auto* agent : pZoneShapeAgentContainer->GetAgents())
     {
+        //Check if agent is the current agent
         if (agent == pAgent)
         {
             continue;
         }
 
+        //Check if agent is enabled
         if (agent->GetAgentData().bIsEnabled == false)
         {
             continue;
@@ -686,30 +698,83 @@ FVector AATS_TrafficManager::GetTrafficAwareNavigationPoint(UATS_AgentNavigation
                 FZoneGraphLaneLocation agentLaneLocation{};
                 m_pZoneGraphSubSystem->CalculateLocationAlongLane(currentLaneHandle, agent->GetAgentData().agentDistanceOnSpline - agent->GetAgentData().agentBox.Y * 4, agentLaneLocation);
 
-                return agentLaneLocation.Position;
+                closestAgent = agentLaneLocation.Position;
+                break;
+                //return agentLaneLocation.Position;
             }
         }
     }
+
+    for (auto* object : pZoneShapeAgentContainer->GetTrafficObjects())
+    {
+        //Check if agent is in front of the current agent
+        float objectDistanceOnSpline = object->GetDistanceAlongLane();
+        float objectlength{ 10 };
+
+        if(object->CanAgentPass())
+		{
+			continue;
+		}
+
+        if (agentData.agentDistanceOnSpline < objectDistanceOnSpline)
+        {
+            //Check if agent is too close to the current agent
+            if (agentData.agentDistanceOnSpline + frontCarDistance > objectDistanceOnSpline - objectlength)
+            {
+                //Agent is too close, stop
+                FZoneGraphLaneLocation objectLaneLocation{};
+                m_pZoneGraphSubSystem->CalculateLocationAlongLane(currentLaneHandle, objectDistanceOnSpline - objectlength * 2, objectLaneLocation);
+
+                closestObject = objectLaneLocation.Position;
+                break;
+                //return agentLaneLocation.Position;
+            }
+        }
+    }
+
+    if(closestAgent != FVector::ZeroVector && closestObject == FVector::ZeroVector)
+	{
+		return closestAgent;
+	}
+    else if(closestObject != FVector::ZeroVector && closestAgent == FVector::ZeroVector)
+    {
+        return closestObject;
+	}
+    else if(closestObject != FVector::ZeroVector && closestAgent != FVector::ZeroVector)
+	{
+		if(FVector::DistSquared(actorLocation, closestAgent) < FVector::DistSquared(actorLocation, closestObject))
+		{
+			return closestAgent;
+		}
+		else
+		{
+			return closestObject;
+		}
+	}
+
+    //-------------------------------------------------------------------------------------------------
+    // next lane check
+    //-------------------------------------------------------------------------------------------------
 
     if (m_pMapZoneShapeAgentContainer.Contains(nextLaneHandle) == false)
     {
         return FVector::ZeroVector;
     }
+
+    closestAgent    = FVector::ZeroVector;
+    closestObject   = FVector::ZeroVector;
+
+    //Get the agent container and loop over all agents
     pZoneShapeAgentContainer = m_pMapZoneShapeAgentContainer[nextLaneHandle].Get();    
-    //if (pZoneShapeAgentContainer->GetAgentsCount() != 0)
-    //{
-    //    if (bIsDebugging)
-    //    {
-    //        UE_LOG(LogTemp, Warning, TEXT("No agents found on current lane, checking next lane"));
-    //    }
-    //}
     for (auto* agent : pZoneShapeAgentContainer->GetAgents())
     {
+        //Check if agent is the current agent
         if (agent == pAgent)
         {
             continue;
         }
 
+        //Check if agent is enabled
         if (agent->GetAgentData().bIsEnabled == false)
         {
             continue;
@@ -727,12 +792,62 @@ FVector AATS_TrafficManager::GetTrafficAwareNavigationPoint(UATS_AgentNavigation
                     UE_LOG(LogTemp, Warning, TEXT("TrafficManager::Agent is too close to the agent in front of it"));
                 }
                 FZoneGraphLaneLocation agentLaneLocation{};
-                m_pZoneGraphSubSystem->CalculateLocationAlongLane(nextLaneHandle, agent->GetAgentData().agentDistanceOnSpline - agent->GetAgentData().agentBox.Y * 4, agentLaneLocation);
+                m_pZoneGraphSubSystem->CalculateLocationAlongLane(nextLaneHandle, agent->GetAgentData().agentDistanceOnSpline - agent->GetAgentData().agentBox.Y * 2, agentLaneLocation);
 
-                return agentLaneLocation.Position;
+                closestAgent = agentLaneLocation.Position;
+                break;
+                //return agentLaneLocation.Position;
             }
         }
     }
+
+    for (auto* object : pZoneShapeAgentContainer->GetTrafficObjects())
+    {
+        //Check if agent is in front of the current agent
+        float objectDistanceOnSpline = object->GetDistanceAlongLane();
+        float objectlength{ 10 };
+
+        if (object->CanAgentPass())
+        {
+            continue;
+        }
+
+        if (agentData.agentDistanceOnSpline < objectDistanceOnSpline)
+        {
+            //Check if agent is too close to the current agent
+            if (agentData.agentDistanceOnSpline + frontCarDistance > objectDistanceOnSpline - objectlength)
+            {
+                //Agent is too close, stop
+                FZoneGraphLaneLocation objectLaneLocation{};
+                m_pZoneGraphSubSystem->CalculateLocationAlongLane(nextLaneHandle, objectDistanceOnSpline - objectlength * 4, objectLaneLocation);
+
+                closestObject = objectLaneLocation.Position;
+                break;
+                //return agentLaneLocation.Position;
+            }
+        }
+    }
+
+    if (closestAgent != FVector::ZeroVector && closestObject == FVector::ZeroVector)
+    {
+        return closestAgent;
+    }
+    else if (closestObject != FVector::ZeroVector && closestAgent == FVector::ZeroVector)
+    {
+        return closestObject;
+    }
+    else if (closestObject != FVector::ZeroVector && closestAgent != FVector::ZeroVector)
+    {
+        if (FVector::DistSquared(actorLocation, closestAgent) < FVector::DistSquared(actorLocation, closestObject))
+        {
+            return closestAgent;
+        }
+        else
+        {
+            return closestObject;
+        }
+    }
+
     return FVector::ZeroVector;
 }
 
@@ -994,7 +1109,6 @@ bool AATS_TrafficManager::RegisterTrafficObject(UATS_TrafficAwarenessComponent* 
 		maxAttachDistance = m_SearchDistance;
 	}
 
-
     float distanceSqr{};
     FZoneGraphLaneLocation closestLane;
     FVector trafficObjectLocation = pTrafficObject->GetOwner()->GetActorLocation();
@@ -1009,9 +1123,17 @@ bool AATS_TrafficManager::RegisterTrafficObject(UATS_TrafficAwarenessComponent* 
     }
 
     connectionPoint = closestLane.Position;
-    m_MapTrafficObjects.Add(closestLane.LaneHandle, pTrafficObject);
+    pTrafficObject->SetDistanceAlongLane(closestLane.DistanceAlongLane);
+    
+    if (m_pMapZoneShapeAgentContainer.Contains(closestLane.LaneHandle) == false)
+	{
+		m_pMapZoneShapeAgentContainer.Add(closestLane.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
+	}
+    m_pMapZoneShapeAgentContainer[closestLane.LaneHandle]->RegisterTrafficObject(pTrafficObject);
+
     return true;
 }
+
 
 void AATS_TrafficManager::Debugging()
 {
