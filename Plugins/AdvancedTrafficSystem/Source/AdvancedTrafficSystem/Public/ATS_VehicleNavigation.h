@@ -51,6 +51,13 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "VehicleSettings|Braking", DisplayName = "Braking distance offset")
 	float m_BrakingDistanceOffset{ 400.0f }; // BASE VALUE: 400.f
 	
+	UPROPERTY(EditAnywhere, Category = "VehicleSettings|Steering", DisplayName = "Max steering value")
+	float m_MaxSteeringValue{ 1.0f }; // MAX VALUE: 1.f
+
+	UPROPERTY(EditAnywhere, Category = "VehicleSettings|Steering", DisplayName = "Min steering value")
+	float m_MinSteeringValue{ -1.0f }; // MIN VALUE: -1.f
+
+
 	// The maximum steering angle the vehicle can have
 	UPROPERTY(EditAnywhere, Category = "VehicleSettings|Physics", meta = (EditCondition = "bIsPhysicsBased"), DisplayName = "Max steering angle")
 	float m_MaxSteeringAngle{ 35.f }; // BASE VALUE: 35.f

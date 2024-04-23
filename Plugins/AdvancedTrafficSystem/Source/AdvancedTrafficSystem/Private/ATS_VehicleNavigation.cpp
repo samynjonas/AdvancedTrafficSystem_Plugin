@@ -46,7 +46,7 @@ bool UATS_VehicleNavigation::MoveToNextPointPhysics(float deltaTime)
 	
 	if (_NextCornerPoint == FVector::ZeroVector)
 	{
-		m_CornerAngle = CalculateCornerAngle(GetOwner()->GetActorLocation(), brakePoint, secondBrakePoint);
+		m_CornerAngle = CalculateCornerAngle(desiredSpeedPoint, brakePoint, secondBrakePoint);
 		if (m_CornerAngle >= 10.f && m_CornerAngle <= 150.f)
 		{
 			// The point is on a corner, we should remember this point untill we passed it
@@ -54,6 +54,7 @@ bool UATS_VehicleNavigation::MoveToNextPointPhysics(float deltaTime)
 			_CornerExit 			= secondBrakePoint;
 
 			nextCornerLaneData = nextCornerLaneData;
+			nextCornerLaneData.agentDistanceOnSpline += brakingDistance / 2.f;
 
 			desiredSpeedPoint = secondBrakePoint;
 		}
@@ -213,7 +214,7 @@ float UATS_VehicleNavigation::CalculateSteeringInput(const FVector& CurrentForwa
 	SteeringInput *= SensitivityAdjustment;
 
 	// Normalize the steering input to be between -1 and 1
-	SteeringInput = FMath::Clamp(SteeringInput / m_MaxSteeringAngle, -1.f, 1.f);
+	SteeringInput = FMath::Clamp(SteeringInput / m_MaxSteeringAngle, m_MinSteeringValue, m_MaxSteeringValue);
 	return SteeringInput;
 }
 
