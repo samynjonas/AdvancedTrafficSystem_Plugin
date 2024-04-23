@@ -146,7 +146,7 @@ void AATS_TrafficManager::SortZoneShapes()
     }
 }
 
-FVector AATS_TrafficManager::GetNextNavigationPoint(AActor* pAgent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData)
+FVector AATS_TrafficManager::GetNextNavigationPoint(AActor* pAgent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData, bool canRegisterAgent)
 {
     if (pAgent == nullptr)
     {
@@ -209,25 +209,28 @@ FVector AATS_TrafficManager::GetNextNavigationPoint(AActor* pAgent, float Advanc
                 return FVector::ZeroVector;
             }
 
-            //Unregister the agent from the current lane
-            if (m_pMapZoneShapeAgentContainer.Contains(m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle) == false)
+            if (canRegisterAgent)
             {
-                m_pMapZoneShapeAgentContainer.Add(m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
+                //Unregister the agent from the current lane
+                if (m_pMapZoneShapeAgentContainer.Contains(m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle) == false)
+                {
+                    m_pMapZoneShapeAgentContainer.Add(m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
+                }
+                m_pMapZoneShapeAgentContainer[m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle]->UnregisterAgent(pAgentNavigation);
+
+                //Register the agent to the next lane
+                if (m_pMapZoneShapeAgentContainer.Contains(m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle) == false)
+                {
+                    m_pMapZoneShapeAgentContainer.Add(m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
+                }
+                m_pMapZoneShapeAgentContainer[m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle]->RegisterAgent(pAgentNavigation);
+
+                //Set the current lane location to the next lane location
+                m_MapAgentNavigationData[pAgent].currentLaneLocation = m_MapAgentNavigationData[pAgent].nextLaneLocation;
+
+                //Reset the next lane location
+                m_MapAgentNavigationData[pAgent].nextLaneLocation.Reset();
             }
-            m_pMapZoneShapeAgentContainer[m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle]->UnregisterAgent(pAgentNavigation);
-
-            //Register the agent to the next lane
-            if (m_pMapZoneShapeAgentContainer.Contains(m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle) == false)
-            {
-                m_pMapZoneShapeAgentContainer.Add(m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
-            }
-            m_pMapZoneShapeAgentContainer[m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle]->RegisterAgent(pAgentNavigation);
-
-            //Set the current lane location to the next lane location
-            m_MapAgentNavigationData[pAgent].currentLaneLocation = m_MapAgentNavigationData[pAgent].nextLaneLocation;
-
-            //Reset the next lane location
-            m_MapAgentNavigationData[pAgent].nextLaneLocation.Reset();
         }
         else if (difference > 0)
         {
@@ -314,13 +317,16 @@ FVector AATS_TrafficManager::GetNextNavigationPoint(AActor* pAgent, float Advanc
             return FVector::ZeroVector;
         }
 
-        m_MapAgentNavigationData.Add(pAgent, agentNavigationData);
-
-        if (m_pMapZoneShapeAgentContainer.Contains(agentNavigationData.currentLaneLocation.LaneHandle) == false)
+        if (canRegisterAgent)
         {
-            m_pMapZoneShapeAgentContainer.Add(agentNavigationData.currentLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
-		}
-        m_pMapZoneShapeAgentContainer[agentNavigationData.currentLaneLocation.LaneHandle]->RegisterAgent(pAgentNavigation);
+            m_MapAgentNavigationData.Add(pAgent, agentNavigationData);
+
+            if (m_pMapZoneShapeAgentContainer.Contains(agentNavigationData.currentLaneLocation.LaneHandle) == false)
+            {
+                m_pMapZoneShapeAgentContainer.Add(agentNavigationData.currentLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
+		    }
+            m_pMapZoneShapeAgentContainer[agentNavigationData.currentLaneLocation.LaneHandle]->RegisterAgent(pAgentNavigation);
+        }
 
         if (bIsDebugging)
         {

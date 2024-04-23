@@ -62,7 +62,7 @@ public:
 
 	bool RegisterTrafficObject(UATS_TrafficAwarenessComponent* pTrafficObject, FVector& connectionPoint, float maxAttachDistance = -1);
 
-	FVector GetNextNavigationPoint(AActor* Agent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData);
+	FVector GetNextNavigationPoint(AActor* Agent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData, bool canRegisterAgent = true);
 	FVector GetNextNavigationPathPoint(AActor* Agent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData, FTrafficNavigationPath& navPath);
 
 	FVector GetTrafficAwareNavigationPoint(UATS_AgentNavigation* pAgent, FAgentData& agentData, float frontCarDistance);

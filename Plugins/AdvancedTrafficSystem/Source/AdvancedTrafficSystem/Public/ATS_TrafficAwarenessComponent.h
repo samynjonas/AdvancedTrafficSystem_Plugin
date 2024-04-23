@@ -63,9 +63,13 @@ protected:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings")
 	bool _bIsMoveable{ false };
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings", DisplayName = "Search to lane distance")
+	float _SearchRadius{ -1.f };
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings")
 	EATS_AwarenessType _AwarenessType{ EATS_AwarenessType::Lane };
+
 
 //---------------------------------------------------
 // Debugging

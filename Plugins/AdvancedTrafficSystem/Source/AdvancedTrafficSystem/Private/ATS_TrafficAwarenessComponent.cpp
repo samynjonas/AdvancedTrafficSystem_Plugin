@@ -140,7 +140,7 @@ bool UATS_TrafficAwarenessComponent::Initialize()
 	// Register this actor to the TrafficManager
 	//-------------------------------------------------------------------------------------------------
 
-	_bIsConnectedToLane = _pTrafficManager->RegisterTrafficObject(this, _ConnectionPoint);
+	_bIsConnectedToLane = _pTrafficManager->RegisterTrafficObject(this, _ConnectionPoint, _SearchRadius);
 	if (_bIsConnectedToLane == false)
 	{
 		if (_bDebug)
