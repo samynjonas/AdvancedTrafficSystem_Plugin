@@ -38,12 +38,13 @@ protected:
 	bool MoveToNextPoint(float deltaTime);
 
 	virtual bool MoveToNextPointPhysics(float deltaTime);
-
 	virtual bool MoveToNextPointSimple(float deltaTime);
 
 	bool IsGoalPointReached(const FVector& goalPoint) const;
 	bool FollowPath(float deltaTime);
 	void RetrievePath();
+
+	bool RetrieveLanePoints();
 
 //--------------------------------------------------------------------------------------------
 // Agent calculation functions
@@ -112,6 +113,10 @@ protected:
 	FVector m_CornerPoint{};
 	float m_CornerAngle{};
 
+	// Lane variables
+	TArray<FLanePoint> m_LanePoints{};
+	int m_CurrentPointIndex{ 1 };
+
 //--------------------------------------------------------------------------------------------
 // Settings
 //--------------------------------------------------------------------------------------------
@@ -168,8 +173,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|Drawing|colors", meta = (EditCondition = "bDrawDebugObjects"), DisplayName = "Desired speed point color")
 	FColor _DrawDebugDesiredPointColor{ FColor::Green };
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|Drawing|colors", meta = (EditCondition = "bDrawDebugObjects"), DisplayName = "Desired speed point color")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|Drawing|colors", meta = (EditCondition = "bDrawDebugObjects"), DisplayName = "Turn circle color")
 	FColor _DrawDebugTurnCircle{ FColor::Blue };
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|Drawing|colors", meta = (EditCondition = "bDrawDebugObjects"), DisplayName = "Corner point color")
+	FColor _DrawDebugCornerPointColor{ FColor::Blue };
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|Drawing|colors", meta = (EditCondition = "bDrawDebugObjects"), DisplayName = "Corner exit point color")
+	FColor _DrawDebugCornerExitColor{ FColor::Blue };
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|Drawing", DisplayName = "Debug draw a path")
 	bool bDrawDebugPath{ false };

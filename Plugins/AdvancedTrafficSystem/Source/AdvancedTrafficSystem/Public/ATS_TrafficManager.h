@@ -62,6 +62,9 @@ public:
 
 	bool RegisterTrafficObject(UATS_TrafficAwarenessComponent* pTrafficObject, FVector& connectionPoint, float maxAttachDistance = -1);
 
+	TArray<FLanePoint> GetLanePoints(AActor* pAgent);
+	TArray<FLanePoint> GetAllLanePoints(AActor* pAgent, FZoneGraphTag tagFilter);
+
 	FVector GetNextNavigationPoint(AActor* Agent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData, bool canRegisterAgent = true);
 	FVector GetNextNavigationPathPoint(AActor* Agent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData, FTrafficNavigationPath& navPath);
 
@@ -78,6 +81,22 @@ public:
 	FTransform GetClosestLanePoint(const FVector& Location, float searchDistance) const;
 
 	void DrawPath(const TArray<FZoneGraphLaneHandle>& lanes);
+
+	FZoneGraphTag GetPedestrianTag() const
+	{
+		return m_PedestrianTag;
+	}
+
+	FZoneGraphTag GetVehicleTagMask() const
+	{
+		return m_VehicleTagMask;
+	}
+
+	FZoneGraphTag GetIntersectionTag() const
+	{
+		return m_IntersectionTag;
+	}
+
 protected:
 
 	//----------------------------------------------------------\\

@@ -66,6 +66,9 @@ void UATS_AgentNavigation::BeginPlay()
 	//Register the agent
 	bool bTempBool{ false };
 	FVector NextPoint = m_pTrafficManager->GetNextNavigationPoint(GetOwner(), MaxPointDistance, bTempBool, m_AgentData);
+
+	//THESE POINTS CAN BE USED TO DETERMINE WHERE THE CORNERS ARE
+	RetrieveLanePoints();
 }
 
 void UATS_AgentNavigation::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -77,11 +80,11 @@ void UATS_AgentNavigation::TickComponent(float DeltaTime, ELevelTick TickType, F
 		VisualizePath(true);
 	}
 
-	if (bIsDisabled)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::Tick -- Agent is disabled"));
-		return;
-	}
+	//if (bIsDisabled)
+	//{
+	//	UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::Tick -- Agent is disabled"));
+	//	return;
+	//}
 
 	if (bFollowPath)
 	{
@@ -365,6 +368,11 @@ void UATS_AgentNavigation::RetrievePath()
 		return;
 	}
 
+	if (m_pTrafficManager->IsInitialized() == false)
+	{
+		m_pTrafficManager->Initialize();
+	}
+
 	FTrafficNavigationPath navigationPath = m_pTrafficManager->FindPath(GetOwner()->GetActorLocation(), m_Destination);
 	if (navigationPath.path.IsEmpty() == false)
 	{
@@ -385,6 +393,46 @@ bool UATS_AgentNavigation::IsGoalPointReached(const FVector& point) const
 	float DistanceToNextPoint = FVector::DistSquared(CurrentPosition, point);
 
 	return DistanceToNextPoint < 100.f;
+}
+
+bool UATS_AgentNavigation::RetrieveLanePoints()
+{
+	/*
+		Lane points are the zonegraphs points on the lane of the vehicle they will return the current lane points and the points for the next lane if they are known
+
+		A way we can use this is for corner detection and maybe steering?
+		For corner detected we can just say that each point is a corner point
+		For steering we can do a bit more, we could use the points to generate a spline that the vehicle will follow
+			To achieve this we will need to have the previous point also and than we can generate a spline path between all the known points, 
+			the diffilcult part will be adding extra points near corners so that the corner spline is looking realistic
+	*/
+
+	if (m_pTrafficManager == nullptr)
+	{
+		return false;
+	}
+
+	m_LanePoints = m_pTrafficManager->GetLanePoints(GetOwner());
+	if (m_LanePoints.Num() == 0)
+	{
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Error, TEXT("AgentNavigation::RetrieveLanePoints() - Lane points are empty"));
+		}
+		return false;
+	}
+
+	if (bDrawDebugObjects)
+	{
+		for (FLanePoint point : m_LanePoints)
+		{
+			//UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::RetrieveLanePoints() - Point %s"), *point.ToString());
+			DrawDebugSphere(GetWorld(), point.position, 100.f, 12, FColor::Green, false, 0.f, 0, 5.f);
+		}
+	}
+
+	m_CurrentPointIndex = 0;
+	return true;
 }
 
 //--------------------------------------------------------------------------------------------

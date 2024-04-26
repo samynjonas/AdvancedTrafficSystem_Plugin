@@ -45,6 +45,7 @@ void AATS_TrafficManager::Initialize()
     SearchZoneShapes();
     AttachTrafficLights();
 
+
     bIsInitialized = true;
 }
 
@@ -121,7 +122,7 @@ void AATS_TrafficManager::SortZoneShapes()
         }
 
         if(pZoneShape->GetTags().Contains(m_VehicleTagMask))
-        {
+        {   
             if (bIsDebugging)
             {
                 UE_LOG(LogTemp, Warning, TEXT("TrafficManager::ZONESHAPE IS OF TYPE: VEHICLE"));
@@ -145,6 +146,196 @@ void AATS_TrafficManager::SortZoneShapes()
         }
     }
 }
+
+TArray<FLanePoint> AATS_TrafficManager::GetLanePoints(AActor* pAgent)
+{
+    /*
+        TODO extend -- add the function to add all lanes and retrieve the points but increase their distance along lane per lane to have a better overview of the lane
+    */
+
+    TArray<FLanePoint> currentLanePoints{};
+    TArray<FLanePoint> nextLanePoints{};
+
+    if (m_MapAgentNavigationData.Contains(pAgent) == false)
+    {
+        return currentLanePoints;
+    }
+
+    FZoneGraphLaneLocation currentLaneLocation  = m_MapAgentNavigationData[pAgent].currentLaneLocation;
+    FZoneGraphLaneLocation nextLaneLocation     = m_MapAgentNavigationData[pAgent].nextLaneLocation;
+
+    //Get the lane points
+    const FZoneGraphStorage* zoneGraphData = m_pZoneGraphSubSystem->GetZoneGraphStorage(currentLaneLocation.LaneHandle.DataHandle);
+ 
+    if(zoneGraphData == nullptr)
+    {
+		return currentLanePoints;
+	}
+
+    //Loop over all lane points
+    for (auto lanePoint : zoneGraphData->LanePoints)
+    {
+	    //Check if they are on the same or next lane of the agent
+        FZoneGraphLaneLocation closestLaneLocation{};
+        float distanceSqr{};
+        FVector Location = lanePoint;
+        float searchDistance = 10.f;
+
+        m_pZoneGraphSubSystem->FindNearestLane(FBox(Location - FVector(searchDistance), Location + FVector(searchDistance)), FZoneGraphTagFilter(), closestLaneLocation, distanceSqr);
+        
+        FLanePoint fLanePoint{};
+        fLanePoint.position          = lanePoint;
+        fLanePoint.distanceAlongLane = closestLaneLocation.DistanceAlongLane;
+
+        if (closestLaneLocation.LaneHandle == currentLaneLocation.LaneHandle)
+        {
+            if (currentLaneLocation.DistanceAlongLane > fLanePoint.distanceAlongLane)
+            {
+                continue;
+            }
+            currentLanePoints.Add(fLanePoint);
+		}
+        else if (closestLaneLocation.LaneHandle == nextLaneLocation.LaneHandle)
+        {
+            nextLanePoints.Add(fLanePoint);
+        }
+    }
+
+    //Sort both the arrays based on their distance along the lane which is stored in Z
+    currentLanePoints.Sort([](const FLanePoint& a, const FLanePoint& b) { return a.distanceAlongLane < b.distanceAlongLane; });
+    nextLanePoints.Sort([](const FLanePoint& a, const FLanePoint& b) { return a.distanceAlongLane < b.distanceAlongLane; });
+
+    //Remove the first from the nextLanePoints
+    if (nextLanePoints.Num() > 0)
+    {
+		nextLanePoints.RemoveAt(0);
+	}
+
+    //Debug draw the points
+    for (auto& point : currentLanePoints)
+    {
+        DrawDebugSphere(GetWorld(), point.position, 75.f, 12, FColor::Blue, false, 0.1f);
+    }
+
+    for (auto& point : nextLanePoints)
+    {
+        DrawDebugSphere(GetWorld(), point.position, 150.f, 12, FColor::Red, false, 0.1f);
+    }
+
+    //Combine the arrays by placing the next after the current
+    currentLanePoints.Append(nextLanePoints);
+
+    return currentLanePoints;
+}
+
+TArray<FLanePoint> AATS_TrafficManager::GetAllLanePoints(AActor* pAgent, FZoneGraphTag tagFilter)
+{
+    /*
+        TODO extend -- add the function to add all lanes and retrieve the points 
+                       but increase their distance along lane per lane to have a better overview of the lane
+
+        TODO extend -- Currently all lanes are added so that is good
+                       but the problem is that the lanes aren't correctly sorted
+    */
+
+    TArray<FLanePoint> allLanePoints{};
+    TArray<TArray<FLanePoint>> lanePoints{};
+
+    if (m_MapAgentNavigationData.Contains(pAgent) == false)
+    {
+        return allLanePoints;
+    }
+
+    FZoneGraphLaneLocation currentLaneLocation = m_MapAgentNavigationData[pAgent].currentLaneLocation;
+
+    //Get the lane points
+    const FZoneGraphStorage* zoneGraphData = m_pZoneGraphSubSystem->GetZoneGraphStorage(currentLaneLocation.LaneHandle.DataHandle);
+
+    if (zoneGraphData == nullptr)
+    {
+        return allLanePoints;
+    }
+
+    FZoneGraphLaneHandle lastLaneHandle{};
+
+    //Loop over all lane points
+    for (auto lanePoint : zoneGraphData->LanePoints)
+    {
+        //Check if they are on the same or next lane of the agent
+        FZoneGraphLaneLocation closestLaneLocation{};
+        float distanceSqr{};
+        FVector Location = lanePoint;
+        float searchDistance = 10.f;
+
+        m_pZoneGraphSubSystem->FindNearestLane(FBox(Location - FVector(searchDistance), Location + FVector(searchDistance)), FZoneGraphTagFilter(), closestLaneLocation, distanceSqr);
+
+        //Adding tag checking to only receive the zoneGraph from the tags we want
+        FZoneGraphTagMask laneTags{};
+        m_pZoneGraphSubSystem->GetLaneTags(closestLaneLocation.LaneHandle, laneTags);
+
+        if (laneTags.Contains(tagFilter) == false)
+        {
+            continue;
+        }
+
+        FLanePoint fLanePoint{};
+        fLanePoint.position = lanePoint;
+        fLanePoint.distanceAlongLane = closestLaneLocation.DistanceAlongLane;
+
+        if (closestLaneLocation.LaneHandle == lastLaneHandle)
+        {
+            lanePoints.Last().Add(fLanePoint);
+		}
+		else
+		{
+			TArray<FLanePoint> newLanePoints{};
+			newLanePoints.Add(fLanePoint);
+
+			lanePoints.Add(newLanePoints);
+			lastLaneHandle = closestLaneLocation.LaneHandle;
+        }
+    }
+
+    //Sort all the arrays based on their distance along
+    for (auto& lane : lanePoints)
+	{
+		lane.Sort([](const FLanePoint& a, const FLanePoint& b) { return a.distanceAlongLane < b.distanceAlongLane; });
+	}
+
+    //Loop over each laneArray and add the length of the previous lane to it
+    float distanceAlongLane{ 0.f };
+    for (auto& lane : lanePoints)
+	{
+		for (auto& point : lane)
+		{
+			point.distanceAlongLane += distanceAlongLane;
+			allLanePoints.Add(point);
+		}
+
+        //Take the distanceAlongLane from the last point
+        distanceAlongLane += lane.Last().distanceAlongLane;
+	}
+
+    //Combine all the arrays
+    for (auto& lane : lanePoints)
+    {
+        for (auto& point : lane)
+        {
+        	allLanePoints.Add(point);
+        }
+    }
+
+    //Debugging
+    if (bIsDebugging)
+    {
+        for (auto& point : allLanePoints)
+	    {
+	    	DrawDebugSphere(GetWorld(), point.position, 75.f, 12, FColor::Orange, false, 10.f);
+	    }
+    }
+    return allLanePoints;
+}
+
 
 FVector AATS_TrafficManager::GetNextNavigationPoint(AActor* pAgent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData, bool canRegisterAgent)
 {
@@ -211,25 +402,30 @@ FVector AATS_TrafficManager::GetNextNavigationPoint(AActor* pAgent, float Advanc
 
             if (canRegisterAgent)
             {
-                //Unregister the agent from the current lane
-                if (m_pMapZoneShapeAgentContainer.Contains(m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle) == false)
-                {
-                    m_pMapZoneShapeAgentContainer.Add(m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
-                }
-                m_pMapZoneShapeAgentContainer[m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle]->UnregisterAgent(pAgentNavigation);
 
                 //Register the agent to the next lane
+                bool succesfullRegister{ false };
                 if (m_pMapZoneShapeAgentContainer.Contains(m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle) == false)
                 {
                     m_pMapZoneShapeAgentContainer.Add(m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
                 }
-                m_pMapZoneShapeAgentContainer[m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle]->RegisterAgent(pAgentNavigation);
 
-                //Set the current lane location to the next lane location
-                m_MapAgentNavigationData[pAgent].currentLaneLocation = m_MapAgentNavigationData[pAgent].nextLaneLocation;
+                succesfullRegister = m_pMapZoneShapeAgentContainer[m_MapAgentNavigationData[pAgent].nextLaneLocation.LaneHandle]->RegisterAgent(pAgentNavigation);
+                if (succesfullRegister)
+                {
+                    //Unregister the agent from the current lane
+                    if (m_pMapZoneShapeAgentContainer.Contains(m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle) == false)
+                    {
+                        m_pMapZoneShapeAgentContainer.Add(m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle, MakeUnique<ATS_ZoneShapeAgentContainer>());
+                    }
+                    m_pMapZoneShapeAgentContainer[m_MapAgentNavigationData[pAgent].currentLaneLocation.LaneHandle]->UnregisterAgent(pAgentNavigation);
+                    
+                    //Set the current lane location to the next lane location
+                    m_MapAgentNavigationData[pAgent].currentLaneLocation = m_MapAgentNavigationData[pAgent].nextLaneLocation;
 
-                //Reset the next lane location
-                m_MapAgentNavigationData[pAgent].nextLaneLocation.Reset();
+                    //Reset the next lane location
+                    m_MapAgentNavigationData[pAgent].nextLaneLocation.Reset();
+                }
             }
         }
         else if (difference > 0)

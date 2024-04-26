@@ -48,6 +48,15 @@ struct ADVANCEDTRAFFICSYSTEM_API FAgentPoint
 };
 
 USTRUCT()
+struct ADVANCEDTRAFFICSYSTEM_API FLanePoint
+{
+	GENERATED_BODY()
+
+	FVector position{};
+	float distanceAlongLane{};
+};
+
+USTRUCT()
 struct ADVANCEDTRAFFICSYSTEM_API FTrafficNavigationPath
 {
 	GENERATED_BODY()
