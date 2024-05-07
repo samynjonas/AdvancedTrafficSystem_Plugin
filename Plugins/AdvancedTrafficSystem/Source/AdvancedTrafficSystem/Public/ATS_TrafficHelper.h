@@ -8,7 +8,67 @@
 
 /*
 	This class is used to help with traffic simulation.
- */
+*/
+
+class USplineComponent;
+
+UENUM(BlueprintType)
+enum class ELaneType : uint8
+{
+	ATS_All,
+	ATS_Road,
+	ATS_Pedestrian,
+	ATS_Bicycle,
+};
+
+USTRUCT()
+struct ADVANCEDTRAFFICSYSTEM_API FLaneNavigationPath
+{
+	GENERATED_BODY()
+
+	FLaneNavigationPath() :
+		pSpline(nullptr),
+		speedLimit(30.f)
+	{}
+
+	//Override = operator
+	bool operator==(const FLaneNavigationPath& other) const
+	{
+		return laneIndex == other.laneIndex;
+	}
+
+	bool IsValid() const
+	{
+		return pSpline != nullptr;
+	}
+
+	bool ContainsTag(ELaneType tag) const
+	{
+		return laneTags.Contains(tag);
+	}
+
+	bool HasOverlappingTags(const TArray<ELaneType>& tags) const
+	{
+		for (const auto& tag : tags)
+		{
+			if (laneTags.Contains(tag))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	USplineComponent* pSpline{ nullptr };
+
+	TArray<UINT32> nextPaths{};
+	TArray<UINT32> previousPaths{};
+
+	TArray<ELaneType> laneTags{};
+
+	float speedLimit{ 30.f };
+	UINT32 laneIndex{ 0 };
+};
 
 USTRUCT()
 struct ADVANCEDTRAFFICSYSTEM_API FAgentNavigationData
@@ -71,7 +131,6 @@ struct ADVANCEDTRAFFICSYSTEM_API FTrafficNavigationPath
 	UINT32 pathIndex{ 0 };
 };
 
-//Enum with type of goal
 UENUM(BlueprintType)
 enum class ENavGoalType : uint8
 {
@@ -81,9 +140,43 @@ enum class ENavGoalType : uint8
 	Other
 };
 
+
+UENUM(BlueprintType)
+enum class ESteeringBehaviors : uint8
+{
+	ATS_Seek,
+	ATS_Flee,
+	ATS_Wander,
+	ATS_FollowPath,
+	ATS_Seperation,
+	ATS_Cohesion,
+	ATS_Alignment
+};
+
 class ADVANCEDTRAFFICSYSTEM_API ATS_TrafficHelper
 {
 public:
 	ATS_TrafficHelper();
 	~ATS_TrafficHelper();
 };
+
+USTRUCT()
+struct ADVANCEDTRAFFICSYSTEM_API FSteeringStruct
+{
+	GENERATED_BODY()
+
+	FSteeringStruct() :
+		weight(0.f),
+		behavior(ESteeringBehaviors::ATS_Seek)
+	{}
+
+	FSteeringStruct(ESteeringBehaviors _behavior, float _weight = 1) :
+		weight(_weight),
+		behavior(_behavior)
+	{}
+
+	float weight{};
+	ESteeringBehaviors behavior{};
+};
+
+
