@@ -2,7 +2,9 @@
 
 
 #include "../Public/ATS_TrafficAwarenessComponent.h"
-#include "../Public/ATS_TrafficManager.h"
+#include "../Public/ATS_NavigationManager.h"
+#include "../Public/ATS_LaneSpline.h"
+#include "Components/SplineComponent.h"
 
 #include "Kismet/GameplayStatics.h"
 
@@ -31,9 +33,16 @@ void UATS_TrafficAwarenessComponent::TickComponent(float DeltaTime, ELevelTick T
 }
 
 bool UATS_TrafficAwarenessComponent::UpdateLocation()
-{
+{	
 	//Check if the actor has moved
-	FVector currentLocation = GetOwner()->GetActorLocation();
+	FVector currentLocation{ GetOffsetPosition() }; // Offset the location
+	
+	if (_bDrawDebug)
+	{
+		DrawDebugLine( GetWorld(),  currentLocation,   _ConnectionPoint,	_DebugColor, false, _DebugDrawTime, 0, 10.0f);
+		DrawDebugPoint(GetWorld(), _ConnectionPoint,  10,				    _DebugColor, false, _DebugDrawTime);
+	}
+
 	if(FVector::DistSquared(currentLocation, _LastLocation) < 0.01f)
 	{
 		//Object has not moved
@@ -44,34 +53,14 @@ bool UATS_TrafficAwarenessComponent::UpdateLocation()
 		return false;
 	}
 
-	if(_pTrafficManager == nullptr)
-	{
-		if(_bDebug)
-		{
-			UE_LOG(LogTemp, Error, TEXT("TrafficAwarenessComponent::UpdateLocation() -- TrafficManager not found!"));
-		}
-		return false;
-	}
-
-	if (_pTrafficManager->IsInitialized() == false)
-	{
-		_pTrafficManager->Initialize();
-	}
-
+	//Update location
 	if (_bDebug)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::UpdateLocation() -- Updating location..."));
-	}
-	_pTrafficManager->RegisterTrafficObject(this, _ConnectionPoint);
-
-	if (_bDrawDebug)
-	{
-		DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), _ConnectionPoint, _DebugColor, false, _DebugDrawTime, 0, 10.0f);
-		DrawDebugPoint(GetWorld(), _ConnectionPoint, 10, _DebugColor, false, _DebugDrawTime);
+		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::UpdateLocation() -- Object has moved!"));
 	}
 
-	//Update location
 	_LastLocation = currentLocation;
+	_bIsDirty = true;
 	return true;
 }
 
@@ -82,43 +71,9 @@ bool UATS_TrafficAwarenessComponent::Initialize()
 		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::Initialize() -- Initializing..."));
 	}
 
-	//-------------------------------------------------------------------------------------------------
-	// Get TrafficManager and make sure it's initialzed already
-	//-------------------------------------------------------------------------------------------------
-
-	TArray<AActor*> pTrafficManagers;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AATS_TrafficManager::StaticClass(), pTrafficManagers);
-
-	for (AActor* pActor : pTrafficManagers)
+	if (_bIsInitialized)
 	{
-		AATS_TrafficManager* pTrafficManager = Cast<AATS_TrafficManager>(pActor);
-		if (pTrafficManager)
-		{
-			_pTrafficManager = pTrafficManager;
-			//Break out of loop - found trafficManager
-			break;
-		}
-	}
-
-	if (_pTrafficManager)
-	{
-		if (_pTrafficManager->IsInitialized() == false)
-		{
-			_pTrafficManager->Initialize();
-		}
-	}
-	else
-	{
-		if (_bDebug)
-		{
-			UE_LOG(LogTemp, Error, TEXT("TrafficAwarenessComponent::Initialize() -- TrafficManager not found!"));
-		}
-		return false;
-	}
-
-	if (_bDebug)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::Initialize() -- TrafficManager connected!"));
+		return true;
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -134,47 +89,67 @@ bool UATS_TrafficAwarenessComponent::Initialize()
 		_bCanAgentPass = true;
 	}
 
-	_LastLocation = GetOwner()->GetActorLocation();
+	FVector currentLocation{ GetOffsetPosition() };
+
+	_LastLocation = currentLocation;
 
 	//-------------------------------------------------------------------------------------------------
-	// Register this actor to the TrafficManager
+	// Register this actor to the NavigationManager
 	//-------------------------------------------------------------------------------------------------
-
-	_bIsConnectedToLane = _pTrafficManager->RegisterTrafficObject(this, _ConnectionPoint, _SearchRadius);
-	if (_bIsConnectedToLane == false)
+	
+	_bIsConnectedToLane = true;
+	if (_bDrawDebug)
 	{
-		if (_bDebug)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::Initialize() -- Failed to register to TrafficManager!"));
-		}
-		return false;
+		DrawDebugLine(GetWorld(), currentLocation, _ConnectionPoint, _DebugColor, false, _DebugDrawTime, 0, 10.0f);
+		DrawDebugPoint(GetWorld(), _ConnectionPoint, 10, _DebugColor, false, _DebugDrawTime);
 	}
-	else
+
+	//Find the navigationManager
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AATS_NavigationManager::StaticClass(), FoundActors);
+	for (AActor* pActor : FoundActors)
 	{
-		if (_bDebug)
+		AATS_NavigationManager* pNavManager = Cast<AATS_NavigationManager>(pActor);
+		if (pNavManager)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::Initialize() -- Connected to lane at position: %s"), *_ConnectionPoint.ToString());
-
-			
-		}
-
-		if (_bDrawDebug)
-		{
-			DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), _ConnectionPoint, _DebugColor, false, _DebugDrawTime, 0, 10.0f);
-			DrawDebugPoint(GetWorld(), _ConnectionPoint, 10, _DebugColor, false, _DebugDrawTime);
+			pNavManager->RegisterTrafficObject(this);
 		}
 	}
+
 
 	if (_bDebug)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::Initialize() -- Initialized succesfully!"));
 	}
+	_bIsInitialized = true;
 	return true;
 }
 
 void UATS_TrafficAwarenessComponent::SetDistanceAlongLane(float distanceAlongLane)
 {
+	_bIsDirty = true;
 	_DistanceAlongLane = distanceAlongLane;
+}
+
+void UATS_TrafficAwarenessComponent::SetLanePoint(FVector position)
+{
+	_bIsDirty = true;
+	_ConnectionPoint = position;
+}
+
+void UATS_TrafficAwarenessComponent::SetIsDirty(bool bIsDirty)
+{
+	if (_bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TrafficAwarenessComponent::SetIsDirty() -- Setting is dirty to %s"), bIsDirty ? TEXT("true") : TEXT("false"));
+	}
+
+	_bIsDirty = bIsDirty;
+}
+
+void UATS_TrafficAwarenessComponent::SetCanAgentPass(bool bCanAgentPass)
+{
+	_bCanAgentPass = bCanAgentPass;
 }
 
 bool UATS_TrafficAwarenessComponent::AdjustAgent(AActor* pAgent)
@@ -186,4 +161,26 @@ bool UATS_TrafficAwarenessComponent::AdjustAgent(AActor* pAgent)
 	}
 
 	return true;
+}
+
+bool UATS_TrafficAwarenessComponent::CanAgentPass(bool respectOverride) const
+{
+	if (_bOverrideCanAgentPassGetter && respectOverride)
+	{
+		return true;
+	}
+	return _bCanAgentPass;
+}
+
+FVector UATS_TrafficAwarenessComponent::GetOffset() const
+{
+	FRotator rotation = GetOwner()->GetActorRotation();
+	FVector transformedOffset = rotation.RotateVector(_TransformOffset.GetLocation());
+
+	return transformedOffset;
+}
+
+FVector UATS_TrafficAwarenessComponent::GetOffsetPosition() const
+{
+	return GetOwner()->GetActorLocation() + GetOffset();
 }

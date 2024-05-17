@@ -7,9 +7,9 @@
 #include "../Public/ATS_BaseTrafficRuler.h"
 #include "ATS_TrafficLight.generated.h"
 
-//Unreal Engine Enum
+
 UENUM(BlueprintType)
-enum class ETrafficLightState : uint8
+enum class ETrafficLightStateColor : uint8
 {
 	Orange,
 	Red,
@@ -51,9 +51,9 @@ protected:
 
 public:	
 	virtual void Tick(float DeltaTime) override;
-	ETrafficLightState GetCurrentState() const { return _CurrentState; }
+	ETrafficLightStateColor GetCurrentState() const { return _CurrentState; }
 
-	void SetCurrentState(ETrafficLightState state, bool resetTime = true);
+	void SetCurrentState(ETrafficLightStateColor state, bool resetTime = true);
 	bool IsOpen() const override;
 	void MarkController(bool isController);
 	
@@ -66,7 +66,7 @@ public:
 // Code Variables
 //---------------------------------------------------
 protected:
-	TMap<ETrafficLightState, float> _MapTimeForState{};
+	TMap<ETrafficLightStateColor, float> _MapTimeForState{};
 	float _CurrentTime{ 0.f };
 
 	bool _bIsController{ true };
@@ -77,7 +77,7 @@ protected:
 //---------------------------------------------------
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TrafficLight")
-	ETrafficLightState _CurrentState{ ETrafficLightState::Red };
+	ETrafficLightStateColor _CurrentState{ ETrafficLightStateColor::Red };
 
 	const int LIGHT_COUNT{ 3 };
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TrafficLight|Lights")

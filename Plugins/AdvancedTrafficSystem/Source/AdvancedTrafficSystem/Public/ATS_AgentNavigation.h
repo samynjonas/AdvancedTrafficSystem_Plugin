@@ -3,12 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "EngineUtils.h"
+#include "Kismet/GameplayStatics.h"
 #include "Components/ActorComponent.h"
 #include "../Public/ATS_TrafficHelper.h"
+
 #include "ATS_AgentNavigation.generated.h"
+
 
 class AATS_TrafficManager;
 class UChaosVehicleMovementComponent;
+class UATS_SpatialUnit;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class ADVANCEDTRAFFICSYSTEM_API UATS_AgentNavigation : public UActorComponent
@@ -69,6 +75,49 @@ protected:
 	void Debugging(float currentSpeed, float steeringInput, float throttleInput, float brakingInput, float cornerAngle, bool isEnabled = true);
 
 //--------------------------------------------------------------------------------------------
+// Spatial partitioning functions
+//--------------------------------------------------------------------------------------------
+public:
+
+
+protected:
+	bool RetrieveSpatialUnit();
+
+	template <typename T>
+	TArray<AActor*> GetNearbyActors() 
+	{
+		TArray<AActor*> actors;
+
+		if (m_pSpatialUnit)
+		{
+			actors = m_pSpatialUnit->GetNearbyActors();
+
+			//Filter out the actors that have the actor component
+			for (int i = actors.Num() - 1; i >= 0; --i)
+			{
+				if (actors[i]->FindComponentByClass<T>() == nullptr)
+				{
+					actors.RemoveAt(i);
+				}
+			}
+		}
+		else
+		{
+			//Search all the actors in the world
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), AActor::StaticClass(), actors);
+			for (int i = actors.Num() - 1; i >= 0; --i)
+			{
+				if (actors[i]->FindComponentByClass<T>() == nullptr)
+				{
+					actors.RemoveAt(i);
+				}
+			}
+		}
+
+		return actors;
+	}
+
+//--------------------------------------------------------------------------------------------
 // Other functions
 //--------------------------------------------------------------------------------------------
 public:
@@ -94,13 +143,16 @@ protected:
 // Code Variables
 //--------------------------------------------------------------------------------------------
 protected:
-	//Agent data
+	// Agent data
 	FAgentData m_AgentData{};
 
 	// Components and references
 	AATS_TrafficManager* m_pTrafficManager;
 	UChaosVehicleMovementComponent* m_pVehicleComponent;	
 	FTrafficNavigationPath m_NavigationPath{};
+
+	// Spatial unit for spatial partitioning
+	UATS_SpatialUnit* m_pSpatialUnit{ nullptr };
 
 	// Speed variables
 	const float BASE_SPEED{ 30.f };

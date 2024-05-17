@@ -3,9 +3,12 @@
 #include "../Public/ATS_AgentNavigation.h"
 #include "../Public/ATS_BaseTrafficRuler.h"
 #include "../Public/ATS_TrafficAwarenessComponent.h"
+#include "../Public/ATS_LaneSpline.h"
 
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
+
+#include "Components/SplineComponent.h"
 
 #include "ZoneGraphAStar.h"
 #include "ZoneShapeComponent.h"
@@ -30,23 +33,27 @@ void AATS_TrafficManager::BeginPlay()
     Initialize();
 }
 
-void AATS_TrafficManager::Initialize()
+bool AATS_TrafficManager::Initialize()
 {
     if (bIsInitialized == true)
     {
-        return;
+        return true;
     }
 
     //Retrieve ZoneGraphSubsystem
     UWorld* World = GetWorld();
     m_pZoneGraphSubSystem = UWorld::GetSubsystem<UZoneGraphSubsystem>(World);
-    check(m_pZoneGraphSubSystem);
+    if (m_pZoneGraphSubSystem == nullptr)
+    {
+        return false;
+    }
 
+    RetrieveLanes();
     SearchZoneShapes();
     AttachTrafficLights();
 
-
     bIsInitialized = true;
+    return true;
 }
 
 void AATS_TrafficManager::SearchZoneShapes()
@@ -145,6 +152,86 @@ void AATS_TrafficManager::SortZoneShapes()
             }
         }
     }
+}
+
+void AATS_TrafficManager::RetrieveLanes()
+{
+    //Retrieve all LaneSplines in the world
+    for (TActorIterator<AATS_LaneSpline> It(GetWorld()); It; ++It)
+    {
+		AATS_LaneSpline* pLaneSpline = *It;
+        if (pLaneSpline)
+        {
+            if (bIsDebugging)
+            {
+				UE_LOG(LogTemp, Warning, TEXT("TrafficManager::LANE FOUND"));
+			}
+            _pArrLaneSplines.Add(pLaneSpline);
+		}	
+    }
+}
+
+FTransform AATS_TrafficManager::GetClosestLanePoint(const FVector& location, float distanceOffset, FZoneGraphTag tagFilter)
+{
+    //Find the closest lane to the location
+    FZoneGraphTagFilter tagFilterStruct{};
+
+    FZoneGraphTagMask tagMask{};
+    tagMask.Add(tagFilter);
+    tagFilterStruct.Pass(tagMask);
+
+    FZoneGraphLaneLocation closestLaneLocation{};
+    float distanceSqr{};
+    m_pZoneGraphSubSystem->FindNearestLane(FBox(location - FVector(10000.f), location + FVector(10000.f)), tagFilterStruct, closestLaneLocation, distanceSqr);
+
+    //Get the distance along the lane
+    float distanceAlongLane{ closestLaneLocation.DistanceAlongLane };
+    distanceAlongLane += distanceOffset;
+
+    //Check if the distance is smaller than the current lane
+    float laneLength{};    
+
+    return FTransform{};
+}
+
+AATS_LaneSpline* AATS_TrafficManager::GetClosestLane(const FVector& Location, ELaneType laneType)
+{
+    if (_pArrLaneSplines.IsEmpty())
+    {
+        RetrieveLanes();
+	}
+
+    //Filter out the lanes with the laneType
+    TArray<AATS_LaneSpline*> filteredLanes{};
+    for (auto pLane : _pArrLaneSplines)
+    {
+        if (pLane->GetLaneType() == laneType)
+        {
+			filteredLanes.Add(pLane);
+		}
+	}
+
+    //Find the closest lane
+    AATS_LaneSpline* pClosestLane{ nullptr };
+    float closestDistance{ TNumericLimits<float>::Max() };
+    for (auto pLane : filteredLanes)
+    {
+        USplineComponent* pSpline = pLane->GetSpline();
+        if (pSpline == nullptr)
+        {
+			continue;
+        }
+
+        FVector closestPoint    = pSpline->FindLocationClosestToWorldLocation(Location, ESplineCoordinateSpace::World);
+        float distance          = FVector::Dist(closestPoint, Location);
+        if (distance < closestDistance)
+        {
+			closestDistance = distance;
+			pClosestLane    = pLane;
+		}
+    }
+
+    return pClosestLane;
 }
 
 TArray<FLanePoint> AATS_TrafficManager::GetLanePoints(AActor* pAgent)
@@ -335,7 +422,6 @@ TArray<FLanePoint> AATS_TrafficManager::GetAllLanePoints(AActor* pAgent, FZoneGr
     }
     return allLanePoints;
 }
-
 
 FVector AATS_TrafficManager::GetNextNavigationPoint(AActor* pAgent, float AdvanceDistance, bool& stopDueTrafficRule, FAgentData& agentData, bool canRegisterAgent)
 {

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "ATS_TrafficHelper.h"
 #include "ATS_NavigationLane.generated.h"
 
 /*
@@ -32,23 +33,30 @@ protected:
 
 	void ReplaceSplinePoints(TArray<FVector> points, USplineComponent* pSplineToAlter);
 	bool SmoothenSplineCorners(USplineComponent* pSpline);
+	void CleanupSplineCorners(USplineComponent* pSpline);
+	void FixTangents(USplineComponent* pSpline);
 
 public:
 	bool Initialize();
 	void SetPoints(TArray<FVector> points);
+	void SetTags(TArray<ELaneType> tags);
 
+	TArray<ELaneType> GetTags() const { return _LaneTags; }
 
 protected:
 	USplineComponent* _pSpline{ nullptr };
 
-	TArray<FVector> _SplinePoints{};
+	TArray<FVector>		_SplinePoints{};
+	TArray<ELaneType>	_LaneTags{};
 
-	// TEMP USING SPLINE, WILL BE REPLACED WITH ZONESHAPE INFORMATION
 	UPROPERTY(EditAnywhere, Category = "Navigation Lane")
 	AActor* _pSplineActor{ nullptr };
 
 	UPROPERTY(EditAnywhere, Category = "Navigation Lane")
-	float DistanceFromCorner{ 350.0f };
+	float DistanceFromCorner{ 350.f };
+
+	UPROPERTY(EditAnywhere, Category = "Navigation Lane")
+	float _CornerCombineDistance{ 500.f };
 
 	bool _bInitialized{ false };
 

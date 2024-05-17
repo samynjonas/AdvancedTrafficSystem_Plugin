@@ -1,5 +1,4 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -27,6 +26,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Navigation")
 	FTransform GetNewPostionBasedOn2Points(float deltaTime, FVector frontPoint, FVector backPoint, float speed, bool loopOnEnd);
+
+	UFUNCTION(BlueprintCallable, Category = "Navigation")
+	bool GetObjectOnPath(FVector location, float distanceOffset, bool& canAgentPass, FVector& outLocation, float& distanceToObject, AActor* askingActor);
 
 protected:
 	UINT32 _CurrentPathIndex{ 0 };

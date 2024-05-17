@@ -11,14 +11,17 @@
 */
 
 class USplineComponent;
+class UATS_TrafficAwarenessComponent;
 
 UENUM(BlueprintType)
 enum class ELaneType : uint8
 {
 	ATS_All,
-	ATS_Road,
+	ATS_Car,
 	ATS_Pedestrian,
 	ATS_Bicycle,
+	ATS_Truck,
+	ATS_Crosswalk
 };
 
 USTRUCT()
@@ -60,6 +63,7 @@ struct ADVANCEDTRAFFICSYSTEM_API FLaneNavigationPath
 	}
 
 	USplineComponent* pSpline{ nullptr };
+	TArray<UATS_TrafficAwarenessComponent*> arrTrafficObjects{};
 
 	TArray<UINT32> nextPaths{};
 	TArray<UINT32> previousPaths{};
@@ -139,7 +143,6 @@ enum class ENavGoalType : uint8
 	Home,
 	Other
 };
-
 
 UENUM(BlueprintType)
 enum class ESteeringBehaviors : uint8

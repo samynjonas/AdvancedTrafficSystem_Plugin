@@ -1,12 +1,11 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "../Public/ATS_AgentNavigation.h"
 #include "../Public/ATS_TrafficManager.h"
+#include "../Public/ATS_SpatialPartitioning.h"
 
 #include "ChaosVehicleMovementComponent.h"
 #include "ZoneShapeComponent.h"
 
-#include "Kismet/GameplayStatics.h"
-#include "EngineUtils.h"
 
 //--------------------------------------------------------------------------------------------
 // Default Unreal Engine Functions
@@ -62,6 +61,13 @@ void UATS_AgentNavigation::BeginPlay()
 	m_AgentData.agentDistanceOnSpline	= 0.f;
 	m_AgentData.agentBox				= FVector(100.f, 100.f, 100.f); //Should be changed -- depedends on the vehicle
 	bIsDisabled = true;
+
+
+	//Spatial partitioning
+	if (RetrieveSpatialUnit())
+	{
+		m_pSpatialUnit->SetIsMoveable(true);
+	}
 
 	//Register the agent
 	bool bTempBool{ false };
@@ -562,5 +568,26 @@ void UATS_AgentNavigation::EnableAgent()
 
 	bIsDisabled = false;
 	m_AgentData.bIsEnabled = true;
+}
+
+//--------------------------------------------------------------------------------------------
+// Spatial functions
+//--------------------------------------------------------------------------------------------
+
+bool UATS_AgentNavigation::RetrieveSpatialUnit()
+{
+	if (m_pSpatialUnit == nullptr)
+	{
+		m_pSpatialUnit = GetOwner()->FindComponentByClass<UATS_SpatialUnit>();
+		if (m_pSpatialUnit == nullptr)
+		{
+			if (bDebug)
+			{
+				UE_LOG(LogTemp, Error, TEXT("AgentNavigation::RetrieveSpatialUnit() - Spatial unit is nullptr"));
+			}
+			return false;
+		}
+	}
+	return true;
 }
 

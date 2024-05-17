@@ -23,9 +23,9 @@ void AATS_TrafficLight::Initialize()
 	ChangeColor();
 
 	//Filling TimeStateMap
-	_MapTimeForState.Add(ETrafficLightState::Red,		_RedTime);
-	_MapTimeForState.Add(ETrafficLightState::Orange,	_OrangeTime);
-	_MapTimeForState.Add(ETrafficLightState::Green,		_GreenTime);
+	_MapTimeForState.Add(ETrafficLightStateColor::Red,		_RedTime);
+	_MapTimeForState.Add(ETrafficLightStateColor::Orange,	_OrangeTime);
+	_MapTimeForState.Add(ETrafficLightStateColor::Green,		_GreenTime);
 
 	//Filling the traffic lights sequence
 	InitializeTrafficLights();
@@ -51,17 +51,17 @@ void AATS_TrafficLight::Statehandler(float DeltaTime)
 	if(_CurrentTime >= _MapTimeForState[_CurrentState])
 	{
 		_CurrentTime = 0;
-		_CurrentState = (ETrafficLightState)(((int)_CurrentState + 1) % LIGHT_COUNT);
+		_CurrentState = (ETrafficLightStateColor)(((int)_CurrentState + 1) % LIGHT_COUNT);
 		ChangeColor();
 	}
 }
 
 bool AATS_TrafficLight::IsOpen() const
 {
-	return _CurrentState == ETrafficLightState::Green;
+	return _CurrentState == ETrafficLightStateColor::Green;
 }
 
-void AATS_TrafficLight::SetCurrentState(ETrafficLightState state, bool resetTime)
+void AATS_TrafficLight::SetCurrentState(ETrafficLightStateColor state, bool resetTime)
 {
 	_CurrentState = state;
 	if (resetTime)
@@ -79,9 +79,9 @@ void AATS_TrafficLight::SetTimes(float redTime, float orangeTime, float greenTim
 	_OrangeTime = orangeTime;
 	_GreenTime	= greenTime;
 
-	_MapTimeForState[ETrafficLightState::Red]		= redTime;
-	_MapTimeForState[ETrafficLightState::Orange]	= orangeTime;
-	_MapTimeForState[ETrafficLightState::Green]		= greenTime;
+	_MapTimeForState[ETrafficLightStateColor::Red]		= redTime;
+	_MapTimeForState[ETrafficLightStateColor::Orange]	= orangeTime;
+	_MapTimeForState[ETrafficLightStateColor::Green]		= greenTime;
 }
 
 void AATS_TrafficLight::InitializeTrafficLights()
@@ -92,8 +92,8 @@ void AATS_TrafficLight::InitializeTrafficLights()
 	}
 
 	bool bhasGreenBeenSet{ false };
-	ETrafficLightState controllerState = _CurrentState;
-	if(_CurrentState == ETrafficLightState::Green)
+	ETrafficLightStateColor controllerState = _CurrentState;
+	if(_CurrentState == ETrafficLightStateColor::Green)
 	{
 		bhasGreenBeenSet = true;
 	}
@@ -110,16 +110,16 @@ void AATS_TrafficLight::InitializeTrafficLights()
 	//Go over the traffic lights list and set them as none controller
 	for (FTrafficLightContainer& trafficLightCopies : _ArrTrafficLightsSequence)
 	{
-		ETrafficLightState sequenceState = ETrafficLightState::Green;
+		ETrafficLightStateColor sequenceState = ETrafficLightStateColor::Green;
 		if (bhasGreenBeenSet == true)
 		{
 			sequenceCounter += 1;
-			sequenceState = ETrafficLightState::Red;
+			sequenceState = ETrafficLightStateColor::Red;
 		}
-		else if (trafficLightCopies.bContainsThis && _CurrentState == ETrafficLightState::Red)
+		else if (trafficLightCopies.bContainsThis && _CurrentState == ETrafficLightStateColor::Red)
 		{
 			sequenceCounter += 1;
-			sequenceState = ETrafficLightState::Red;
+			sequenceState = ETrafficLightStateColor::Red;
 		}
 
 		for (AATS_TrafficLight* trafficLight : trafficLightCopies._ArrCopyTrafficLights)
@@ -132,7 +132,7 @@ void AATS_TrafficLight::InitializeTrafficLights()
 			}
 			
 			float passedTime{ redBaseTime * sequenceCounter };
-			if (sequenceState == ETrafficLightState::Green)
+			if (sequenceState == ETrafficLightStateColor::Green)
 			{
 				passedTime = 0;
 				bhasGreenBeenSet = true;

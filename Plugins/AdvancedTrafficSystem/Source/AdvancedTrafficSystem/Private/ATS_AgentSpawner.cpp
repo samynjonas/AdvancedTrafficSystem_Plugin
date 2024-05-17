@@ -29,7 +29,7 @@ AATS_AgentSpawner::AATS_AgentSpawner()
 	_BoxComponent->SetupAttachment(_BillBoardComponent);
 	_BoxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	_AgentMain		= CreateDefaultSubobject<UATS_AgentMain>( TEXT("ATS_AgentMain") );
+	_AgentMain = CreateDefaultSubobject<UATS_AgentMain>( TEXT("ATS_AgentMain") );
 }
 
 // Called when the game starts or when spawned

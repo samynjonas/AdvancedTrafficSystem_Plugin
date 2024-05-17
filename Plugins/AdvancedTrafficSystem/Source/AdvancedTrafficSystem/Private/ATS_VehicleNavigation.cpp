@@ -1,6 +1,7 @@
 #include "../Public/ATS_VehicleNavigation.h"
 #include "../Public/ATS_TrafficManager.h"
 
+#include "Components/SplineComponent.h"
 #include "ChaosVehicleMovementComponent.h"
 #include "ZoneShapeComponent.h"
 
@@ -12,126 +13,387 @@ UATS_VehicleNavigation::UATS_VehicleNavigation()
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
+/*
 bool UATS_VehicleNavigation::MoveToNextPointPhysics(float deltaTime)
-{	// Retrieve information about the lane
-	float CurrentSpeed			= m_pVehicleComponent->GetForwardSpeed();								// Get the current speed of the vehicle
-	float brakingDistance		= CalculateBrakingDistance(CurrentSpeed) * m_BrakingMultiplier + m_BrakingDistanceOffset;								// Calculate the braking distance based on the current speed
+{
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------RETRIEVING AGENT DATA-------------------------------------"));
+	}
+	//Retrieve corner information
+	RetrieveLanePoints();
 
-	float desiredSpeedFactor	= FMath::Clamp(m_DesiredSpeed / m_MaxSpeedUnrealunits, 0.0f, 1.0f);		// Get the desired speed factor based on the desired speed and speedLimit
-	float desiredPointDistance	= FMath::Lerp(MinPointDistance, MaxPointDistance, desiredSpeedFactor);	// Calculate the desired point distance based on the desired speed factor
+	// Retrieve information about the lane
+	float CurrentSpeed = m_pVehicleComponent->GetForwardSpeed(); // Get the current speed of the vehicle
+	float brakingDistance = CalculateBrakingDistance(CurrentSpeed) * m_BrakingMultiplier + m_BrakingDistanceOffset; // Calculate the braking distance based on the current speed
+
+	FVector CurrentPosition = GetOwner()->GetActorLocation();		//Vehicle actor position
+	FVector CurrentForward = GetOwner()->GetActorForwardVector();	//Vehicle actor forward vector
+
+	float desiredSpeedFactor = FMath::Clamp(m_DesiredSpeed / m_MaxSpeedUnrealunits, 0.0f, 1.0f);		// Get the desired speed factor based on the desired speed and speedLimit
+	float desiredPointDistance = FMath::Lerp(MinPointDistance, MaxPointDistance, desiredSpeedFactor);	// Calculate the desired point distance based on the desired speed factor
 
 	bool	brakeBool{ false };
 	bool	bStopDueTrafficRule{ false };
 
 	FAgentData brakeData{ m_AgentData };
 	FAgentData secondBrakeData{ m_AgentData };
-	
-	FVector desiredSpeedPoint	= m_pTrafficManager->GetNextNavigationPoint(GetOwner(), desiredPointDistance,	bStopDueTrafficRule,	m_AgentData);
-	
-	FVector brakePoint			= m_pTrafficManager->GetNextNavigationPoint(GetOwner(), brakingDistance,		bStopDueTrafficRule,	brakeData,			false);
-	FVector secondBrakePoint	= m_pTrafficManager->GetNextNavigationPoint(GetOwner(), brakingDistance * 2.f,	brakeBool,				secondBrakeData,	false);
-	
-	FVector stopDueTraffic = m_pTrafficManager->GetTrafficAwareNavigationPoint(this, m_AgentData, brakingDistance);
-	if (stopDueTraffic.IsZero() == false)
+
+	FVector brakePoint = m_pTrafficManager->GetNextNavigationPoint(GetOwner(), brakingDistance, bStopDueTrafficRule, brakeData, false);
+	FVector secondBrakePoint = m_pTrafficManager->GetNextNavigationPoint(GetOwner(), brakingDistance * 2.f, brakeBool, secondBrakeData, false);
+
+	FVector cornerPoint = secondBrakePoint;
+	if (m_LanePoints.IsValidIndex(m_CurrentPointIndex))
 	{
-		desiredSpeedPoint	= stopDueTraffic;	// This point will be set as the desired speed point
-		bStopDueTrafficRule = true;				// Set the stop due to traffic rule to true
-	}
-
-	//--------------------------------------------------------
-	//----------------VECTOR CALCULATIONS---------------------
-	//--------------------------------------------------------
-	FVector CurrentPosition = GetOwner()->GetActorLocation();		//Vehicle actor position
-	FVector CurrentForward	= GetOwner()->GetActorForwardVector();	//Vehicle actor forward vector
-	
-	if (_NextCornerPoint == FVector::ZeroVector)
-	{
-		m_CornerAngle = CalculateCornerAngle(desiredSpeedPoint, brakePoint, secondBrakePoint);
-		if (m_CornerAngle >= 10.f && m_CornerAngle <= 150.f)
-		{
-			// The point is on a corner, we should remember this point untill we passed it
-			_NextCornerPoint		= brakePoint;
-			_CornerExit 			= secondBrakePoint;
-
-			nextCornerLaneData = nextCornerLaneData;
-			nextCornerLaneData.agentDistanceOnSpline += brakingDistance / 2.f;
-
-			desiredSpeedPoint = secondBrakePoint;
-		}
+		cornerPoint = m_LanePoints[m_CurrentPointIndex];
 	}
 	else
 	{
-		if (m_AgentData.agentDistanceOnSpline > nextCornerLaneData.agentDistanceOnSpline)
-		{
-			_NextCornerPoint = FVector::ZeroVector;
-		}
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::MoveToNextPointPhysics() -- LanePoints is not valid"));
 	}
-	
-	
-	if (bDrawDebugObjects)
-	{
-		DrawDebugSphere(GetWorld(), brakePoint,			_DrawDebugCircleRadius, 12, FColor::Black, false, 0.f, 0, _DrawDebugThickness);
-		DrawDebugSphere(GetWorld(), secondBrakePoint,	_DrawDebugCircleRadius, 12, FColor::Black, false, 0.f, 0, _DrawDebugThickness);
 
-		DrawDebugSphere(GetWorld(), desiredSpeedPoint,	_DrawDebugCircleRadius, 12, _DrawDebugDesiredPointColor,	false, 0.f, 0, _DrawDebugThickness);
+	float distanceToCorner = brakingDistance * 2.f;
+	distanceToCorner = FVector::Dist(GetOwner()->GetActorLocation(), cornerPoint);	// Calculate the distance to the next corner
+
+	float distanceToNextPoint{ FLT_MAX };	// Calculate the distance to the next point
+	if (m_LanePoints.IsValidIndex(m_CurrentPointIndex + 1))
+	{
+		distanceToNextPoint = FVector::Dist(cornerPoint, m_LanePoints[m_CurrentPointIndex + 1]);	// Calculate the distance to the next point
 	}
+
+	bool tempBool{ false };
+	FAgentData cornerData{ m_AgentData };
+	FVector AfterCornerPoint{};
+	float afterCornerDistance{ distanceToCorner * 2 };
+
+	if (distanceToCorner > distanceToNextPoint)
+	{
+		afterCornerDistance = distanceToCorner + distanceToNextPoint;
+	}
+	AfterCornerPoint = m_pTrafficManager->GetNextNavigationPoint(GetOwner(), afterCornerDistance, tempBool, cornerData, false);
 
 	//--------------------------------------------------------
 	//----------------Corner CALCULATIONS---------------------
 	//--------------------------------------------------------	
-	float brakeFromCornerInput{ 0.0f };
-	if(_NextCornerPoint != FVector::ZeroVector)
+	if (bDebug)
 	{
-		brakeFromCornerInput = CalculateBrakingForCorner(CurrentSpeed, brakingDistance, brakePoint, secondBrakePoint);
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------CORNER CALCULATIONS-------------------------------------"));
+	}
+
+	float brakeFromCornerInput{ 0.0f };
+	float canTurn{ 0.0f };
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::MoveToNextPointPhysics() -- brakingDistance %f"), brakingDistance);
+	}
+
+	brakeFromCornerInput = CalculateBrakingForCorner(CurrentSpeed, distanceToCorner, cornerPoint, AfterCornerPoint, canTurn);
+
+
+	FVector desiredSpeedPoint = m_pTrafficManager->GetNextNavigationPoint(GetOwner(), desiredPointDistance, bStopDueTrafficRule, m_AgentData);
+
+	FVector stopDueTraffic = m_pTrafficManager->GetTrafficAwareNavigationPoint(this, m_AgentData, brakingDistance);
+	if (stopDueTraffic.IsZero() == false)
+	{
+		desiredSpeedPoint = stopDueTraffic;	// This point will be set as the desired speed point
+		bStopDueTrafficRule = true;				// Set the stop due to traffic rule to true
+	}
+
+
+	if (bDrawDebugObjects)
+	{
+		DrawDebugSphere(GetWorld(), brakePoint, _DrawDebugCircleRadius, 12, FColor::Black, false, 0.f, 0, _DrawDebugThickness);
+		DrawDebugSphere(GetWorld(), secondBrakePoint, _DrawDebugCircleRadius, 12, FColor::Black, false, 0.f, 0, _DrawDebugThickness);
+
+		DrawDebugSphere(GetWorld(), desiredSpeedPoint, _DrawDebugCircleRadius, 12, _DrawDebugDesiredPointColor, false, 0.f, 0, _DrawDebugThickness);
+
+		DrawDebugSphere(GetWorld(), cornerPoint, 100, 12, FColor::Magenta, false, 0.f, 0, _DrawDebugThickness);
+		DrawDebugSphere(GetWorld(), AfterCornerPoint, _DrawDebugCircleRadius, 12, FColor::Orange, false, 0.f, 0, _DrawDebugThickness);
 	}
 
 	//--------------------------------------------------------
 	//----------------STEERING CALCULATIONS-------------------
 	//--------------------------------------------------------
-	float SteeringInput{ 0.0f };
-	FVector ToNextPoint		= (desiredSpeedPoint - CurrentPosition).GetSafeNormal();	//Direction vector from actor towards the next point
-	FVector ToCornerExit	= (_CornerExit - CurrentPosition).GetSafeNormal();	//Direction vector from actor towards the next point
-
-	if(_NextCornerPoint != FVector::ZeroVector && brakeFromCornerInput < 0.2f)
+	if (bDebug)
 	{
-		SteeringInput = CalculateSteeringInput(CurrentForward, ToCornerExit);
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------STEERING CALCULATIONS-------------------------------------"));
 	}
-	else
+
+	float SteeringInput{ canTurn };
+
+	FVector ToNextPoint = (desiredSpeedPoint - CurrentPosition).GetSafeNormal();	//Direction vector from actor towards the next point
+	FVector ToCornerExit = (AfterCornerPoint - CurrentPosition).GetSafeNormal();		//Direction vector from actor towards the next point
+
+	//Vehicle can turn if can turn is bigger than 0 or the braking distance is bigger than the dt to the corner
+	if (canTurn != 0 || brakingDistance < distanceToCorner)
 	{
 		SteeringInput = CalculateSteeringInput(CurrentForward, ToNextPoint);
 	}
-	
-	
+	prevSteeringInput = SteeringInput;
 
 	//--------------------------------------------------------
 	//----------------BRAKING AND THROTTLE--------------------
 	//--------------------------------------------------------
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------BRAKING AND THROTTLE CALCULATIONS-------------------------------------"));
+	}
+
 	float ThrottleInput{ 0.0f };
 	float BrakeInput{ brakeFromCornerInput };
-	
-	if (BrakeInput > 0.2f || bStopDueTrafficRule || _bBrake)
+
+	if (BrakeInput > 0.1f || bStopDueTrafficRule || _bBrake)
 	{
-		ThrottleInput	= 0.0f; // No throttle when braking
-		SteeringInput	= 0.0f;	// No steering when braking
-		BrakeInput		= 1.0f;
+		ThrottleInput = 0.0f; // No throttle when braking
+		SteeringInput = 0.0f;	// No steering when braking
+	}
+	else if (abs(SteeringInput) >= 0.5)
+	{
+		ThrottleInput = CalculateThrottleInput(CurrentPosition, desiredSpeedPoint);
+		ThrottleInput = FMath::Clamp(ThrottleInput, 0.0f, 0.25f);
 	}
 	else
 	{
-		ThrottleInput	= CalculateThrottleInput(CurrentPosition, desiredSpeedPoint);
-		BrakeInput		= 0.0f; // Make sure we are not braking
+		ThrottleInput = CalculateThrottleInput(CurrentPosition, desiredSpeedPoint);
+		BrakeInput = 0.0f; // Make sure we are not braking
 	}
-
 
 	//--------------------------------------------------------
 	//----------------APPLY ALL-------------------------------
-	//--------------------------------------------------------			
+	//--------------------------------------------------------
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------APPLYING CALCULATIONS-------------------------------------"));
+	}
+
 	if (bDebug)
 	{
 		Debugging(CurrentSpeed, SteeringInput, ThrottleInput, BrakeInput, 0);
 	}
 
 	return ApplyVehicleControl(SteeringInput, ThrottleInput, BrakeInput);
+}
+*/
 
+bool UATS_VehicleNavigation::MoveToNextPointPhysics(float deltaTime)
+{
+	//--------------------------------------------------------
+	//----------------LOCAL VARIABLES-------------------------
+	//--------------------------------------------------------	
+	FVector agentPosition{ FVector::ZeroVector }; //Position of the vehicle
+	float currentSpeed{ 0.f };		//Current speed of the vehicle
+	
+	float steeringInput{ 0.f };		//Steering input of the vehicle
+	float throttleInput{ 0.f };		//Throttle input of the vehicle
+	float brakingInput{ 0.f };		//Braking input of the vehicle
+
+	float desiredSpeed{ 0.f };		//Desired speed of the vehicle
+	float brakingDistance{ 0.f };	//Braking distance of the vehicle
+
+	//BRAKING POINT VARIABLES
+	bool bBrake{ false };
+	FAgentData brakeData{ m_AgentData };
+	FVector brakePoint{ FVector::ZeroVector };
+
+	//DESIRED SPEED POINT VARIABLES
+	bool bDesiredSpeed{ false };
+	FAgentData desiredSpeedData{ m_AgentData };
+	FVector desiredSpeedPoint{ FVector::ZeroVector };
+	float desiredSpeedFactor{ 0.f }; 	// Get the desired speed factor based on the desired speed and speedLimit
+	float desiredPointDistance{ 0.f }; 	// Calculate the desired point distance based on the desired speed factor
+
+	//CORNER POINT VARIABLES
+	FVector cornerPoint{ FVector::ZeroVector };
+
+	bool bCorner{ false };
+	FAgentData cornerData{ m_AgentData };
+	FVector cornerExitPoint{ FVector::ZeroVector };
+
+	float distanceToCorner{ 0.f };		// Calculate the distance between the agent  and the corner
+	float distanceToCornerExit{ 0.f };	// Calculate the distance between the corner and the corner exit
+
+
+	//--------------------------------------------------------
+	//----------------RETRIEVING AGENT DATA-------------------
+	//--------------------------------------------------------	
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------RETRIEVING AGENT DATA-------------------------------------"));
+	}
+	
+	agentPosition	= GetOwner()->GetActorLocation();
+	currentSpeed	= m_pVehicleComponent->GetForwardSpeed();
+	
+	brakingDistance = CalculateBrakingDistance(currentSpeed) * m_BrakingMultiplier + m_BrakingDistanceOffset;
+	desiredSpeed	= m_DesiredSpeed; // Add an offset to the desired speed to make traffic more dynamic
+
+	desiredSpeedFactor		= FMath::Clamp(desiredSpeed / m_MaxSpeedUnrealunits, 0.0f, 1.0f);
+	desiredPointDistance	= FMath::Lerp(MinPointDistance, MaxPointDistance, desiredSpeedFactor);
+	
+	if (RetrieveSpline() == false)
+	{
+		return false;
+	}
+
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::MoveToNextPointPhysics() -- currentSpeed %f"), currentSpeed);
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::MoveToNextPointPhysics() -- desiredSpeed %f"), desiredSpeed);
+	}
+
+	FVector stopDueTraffic = m_pTrafficManager->GetTrafficAwareNavigationPoint(this, m_AgentData, brakingDistance);
+	if (stopDueTraffic.IsZero() == false)
+	{
+		desiredSpeedPoint = stopDueTraffic;	// This point will be set as the desired speed point
+		brakingInput = 1.f;
+	}
+
+	//--------------------------------------------------------
+	//----------------POINT CALCULATIONS----------------------
+	//--------------------------------------------------------	
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------POINT CALCULATIONS-------------------------------------"));
+	}
+
+	//Brake point
+	brakePoint			= m_pTrafficManager->GetNextNavigationPoint(GetOwner(), brakingDistance, bBrake, m_AgentData);							// Brake point of vehicle on his lane
+	
+	//Desired speed point
+	desiredSpeedPoint	= m_pTrafficManager->GetNextNavigationPoint(GetOwner(), desiredPointDistance, bDesiredSpeed, desiredSpeedData, false);	// Desired speed point of vehicle on his lane
+
+	//Corner point
+	RetrieveLanePoints();
+	if (m_LanePoints.IsValidIndex(m_CurrentPointIndex) == false)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::MoveToNextPointPhysics() -- LanePoints is not valid"));
+		return false;
+	}
+	cornerPoint = m_LanePoints[m_CurrentPointIndex].position;
+	distanceToCorner = FVector::DistSquared(agentPosition,	cornerPoint);
+	
+	//Check if there is a next corner point
+	if(m_LanePoints.IsValidIndex(m_CurrentPointIndex + 1))
+	{
+		cornerExitPoint = m_LanePoints[m_CurrentPointIndex + 1].position;
+	}
+	else
+	{
+		cornerExitPoint = m_pTrafficManager->GetNextNavigationPoint(GetOwner(), distanceToCorner + distanceToCorner, bCorner, cornerData, false);
+	}
+	distanceToCornerExit	= FVector::DistSquared(cornerPoint,	cornerExitPoint);
+
+	//Compare the distance between the corner exit point and the distance from player to the corner
+	if (distanceToCorner < distanceToCornerExit)
+	{
+		//The point will need to be changed
+		distanceToCorner = FVector::Distance(agentPosition, cornerPoint);
+		cornerExitPoint = m_pTrafficManager->GetNextNavigationPoint(GetOwner(), distanceToCorner + distanceToCorner, bCorner, cornerData, false);
+	}
+	distanceToCornerExit = FVector::Distance(cornerPoint, cornerExitPoint);
+
+
+	//--------------------------------------------------------
+	//----------------CORNER CALCULATIONS---------------------
+	//--------------------------------------------------------	
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------CORNER CALCULATIONS-------------------------------------"));
+	}
+
+	float cornerAngle = CalculateCornerAngle(agentPosition, cornerPoint, cornerExitPoint);
+	if(cornerAngle < 170.f && brakingInput == 0.f)
+	{
+		brakingInput = CalculateBrakingForCorner(currentSpeed, desiredSpeed, cornerPoint, cornerExitPoint, steeringInput);
+		
+		//--------------------------------------------------------
+		//----------------SPLINE CALCULATIONS---------------------
+		//--------------------------------------------------------
+		if (m_pSplineComponent)
+		{
+			// Calculate direction vectors
+			FVector InTangent  = cornerPoint - agentPosition;
+			FVector OutTangent = cornerExitPoint - cornerPoint;
+
+			// Normalize if necessary, depending on your needs for the spline's curvature
+			InTangent.Normalize();
+			OutTangent.Normalize();
+
+			m_pSplineComponent->SetLocationAtSplinePoint(1, cornerExitPoint, ESplineCoordinateSpace::World);
+
+			m_pSplineComponent->SetTangentAtSplinePoint(0, InTangent  *	(distanceToCorner * 2),		ESplineCoordinateSpace::World);
+			m_pSplineComponent->SetTangentAtSplinePoint(1, OutTangent * (distanceToCornerExit * 2), ESplineCoordinateSpace::World);
+		}
+
+		if (brakingInput == 0.f)
+		{
+			desiredSpeedPoint = m_pTrafficManager->GetNextNavigationPoint(GetOwner(), desiredPointDistance + 400.f, bDesiredSpeed, desiredSpeedData, false);	// Desired speed point of vehicle on his lane
+		}
+	}
+
+	//--------------------------------------------------------
+	//----------------STEERING CALCULATIONS-------------------
+	//--------------------------------------------------------
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------STEERING CALCULATIONS-------------------------------------"));
+	}
+
+	if (steeringInput != 0)
+	{
+		//Received steering from corner calculations -- move desired speed point?
+		//desiredSpeedPoint = cornerExitPoint;
+	}
+	steeringInput = CalculateSteeringInput(GetOwner()->GetActorForwardVector(), (desiredSpeedPoint - agentPosition).GetSafeNormal());
+
+	//--------------------------------------------------------
+	//----------------BRAKING AND THROTTLE--------------------
+	//--------------------------------------------------------
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------BRAKING AND THROTTLE CALCULATIONS-------------------------------------"));
+	}
+
+	throttleInput = 1.f;
+	if (brakingInput > 0.01f)
+	{
+		throttleInput = 0.f;
+	}
+	else if (abs(steeringInput) > 0.5f)
+	{
+		throttleInput = 0.25f;
+	}
+	
+
+	//--------------------------------------------------------
+	//----------------APPLY ALL-------------------------------
+	//--------------------------------------------------------
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("\n-------------------------------------APPLYING CALCULATIONS-------------------------------------"));
+	}
+
+	if (bDrawDebugObjects)
+	{
+		//Draw debug the points
+		DrawDebugSphere(GetWorld(), brakePoint,			_DrawDebugCircleRadius, 12, _DrawDebugBrakeColor,			false, 0.f, 0, _DrawDebugThickness);
+		DrawDebugSphere(GetWorld(), desiredSpeedPoint,	_DrawDebugCircleRadius, 12, _DrawDebugDesiredPointColor,	false, 0.f, 0, _DrawDebugThickness);
+		DrawDebugSphere(GetWorld(), cornerPoint,		_DrawDebugCircleRadius, 12, _DrawDebugCornerPointColor,		false, 0.f, 0, _DrawDebugThickness);
+		DrawDebugSphere(GetWorld(), cornerExitPoint,	_DrawDebugCircleRadius, 12, _DrawDebugCornerExitColor,		false, 0.f, 0, _DrawDebugThickness);
+	}
+
+	if (bDebug)
+	{
+		//Rescale the brake input from 0-1 to 0-255
+		int brakeColor = ( brakingInput * 255 );
+		int throttleColor = ( throttleInput * 255 );
+
+//		m_pSplineComponent->EditorUnselectedSplineSegmentColor = FColor(brakeColor, throttleColor, 255);
+
+		Debugging(currentSpeed, steeringInput, throttleInput, brakingInput, 0);
+	}
+
+	return ApplyVehicleControl(steeringInput, throttleInput, brakingInput);
 }
 
 
@@ -274,17 +536,28 @@ bool UATS_VehicleNavigation::ShouldBrake(float TurnSharpness, float currentSpeed
 	return currentSpeed > maxCornerSpeed;
 }
 
-float UATS_VehicleNavigation::CalculateCornerAngle(const FVector& currentPoint, const FVector& nextPoint, const FVector& secondNextPoint)
+float UATS_VehicleNavigation::CalculateCornerAngle(const FVector& firstPoint, const FVector& cornerPoint, const FVector& secondPoint)
 {
+	if (cornerPoint == FVector::ZeroVector)
+	{
+		return 0.f;
+	}
+
 	// Lengths of sides of the triangle formed by the points
-	float a = (nextPoint - secondNextPoint).Size();
-	float b = (currentPoint - secondNextPoint).Size();
-	float c = (currentPoint - nextPoint).Size();
+	float a = (cornerPoint - secondPoint).Size();
+	float b = (firstPoint - secondPoint).Size();
+	float c = (firstPoint - cornerPoint).Size();
 
 	// Using the Law of Cosines to find the angle at B
 	float angleB = acosf(FMath::Clamp((a * a + c * c - b * b) / (2 * a * c), -1.0f, 1.0f));
+	float angleBdegrees = FMath::RadiansToDegrees(angleB);
 
-	return FMath::RadiansToDegrees(angleB);
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCornerAngle() -- Angle %f"), angleBdegrees);
+	}
+
+	return angleBdegrees;
 }
 
 float UATS_VehicleNavigation::CalculateMaxCorneringSpeed(float TurnRadius, float FrictionCoefficient)
@@ -387,7 +660,7 @@ float UATS_VehicleNavigation::CalculateTurnRadius(float TurnSharpness, float Cur
 	return turnRadius;
 }
 
-float UATS_VehicleNavigation::CalculateBrakingForCorner(float currentSpeed, float distanceToCorner, FVector cornerPoint, FVector afterCornerPoint)
+float UATS_VehicleNavigation::CalculateBrakingForCorner(float currentSpeed, float maxLaneSpeed, FVector cornerPoint, FVector afterCornerPoint, float& canTurn)
 {
 	/*
 		r = TurnRadius			-- CALCULATED HERE
@@ -412,25 +685,32 @@ float UATS_VehicleNavigation::CalculateBrakingForCorner(float currentSpeed, floa
 		Depending on the difference between this length and the desired length you can calculate how hard to brake
 
 		The after corner point should be at the same distance from the corner as the current distance from the vehicle to the corner
-		To check wether the vehicle can take this corner, the distance from that point to the centerpoint should be the same(within certain range) as the turnradius
+		To check if the vehicle can take this corner, the distance from that point to the centerpoint should be the same(within certain range) as the turnradius
 	*/
 	if (m_pVehicleComponent == nullptr)
 	{
 		return 0.f;
 	}
 
+	if (FVector::DistSquared(cornerPoint, afterCornerPoint) < 0.1f)
+	{
+		return 0.f;
+	}
+
+
 	//Initialize the variables
 	const float DISTANCE_ERROR{ 10.f };
 
 	float turnRadius{ 0.f };
 	float turnWidth{ 0.f };
+	float maxTurnRadiusForCorner{ 0.f };
+	float distanceToCorner{ 0.f };
+	canTurn = 0.f;
 
 	//Calculate the turn radius
-	turnRadius = currentSpeed * currentSpeed / (_Gravity * _DryAsphaltFriction);
-	if (bDebug)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- TurnRadius %f"), turnRadius);
-	}
+	turnRadius				= currentSpeed * currentSpeed / (_Gravity * _DryAsphaltFriction);
+	maxTurnRadiusForCorner	= maxLaneSpeed * maxLaneSpeed / (_Gravity * _DryAsphaltFriction);
+	//turnRadius = maxTurnRadiusForCorner;
 
 	//Make the turn circle
 	FVector turnRadiusCircleCenter{};
@@ -447,6 +727,7 @@ float UATS_VehicleNavigation::CalculateBrakingForCorner(float currentSpeed, floa
 
 		turnRadiusCircleCenter = agentLocation + ScaledRightVector;
 	}
+
 	if (bDrawDebugObjects)
 	{
 		DrawDebugSphere(GetWorld(), turnRadiusCircleCenter, turnRadius, 12, _DrawDebugTurnCircle, false, 0.f, 0, _DrawDebugThickness);
@@ -454,6 +735,14 @@ float UATS_VehicleNavigation::CalculateBrakingForCorner(float currentSpeed, floa
 
 	//Distance from center to after corner point
 	float distanceToAfterCornerPoint = FVector::Dist(cornerPoint, afterCornerPoint);
+	distanceToCorner = FVector::Dist(cornerPoint, GetOwner()->GetActorLocation());
+	float brakeDistance = CalculateBrakingDistance(currentSpeed);
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- DistanceToAfterCornerPoint %f"), distanceToAfterCornerPoint);
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- TurnRadius %f"), turnRadius);
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- DesiredTurnRadius %f"), maxTurnRadiusForCorner);
+	}
 
 	//This should be similar to the turn radius 
 	// -- if the distance is smaller you will need to slow down
@@ -462,28 +751,39 @@ float UATS_VehicleNavigation::CalculateBrakingForCorner(float currentSpeed, floa
 	{
 		//The car doesn't need to slow down yet and can keep driving its speed
 		return 0.f;
-	}
+	}	
 
 	//Calculate the distance from the corner to the center of the turn circle
 	float cornerToCenterDistance = FVector::Dist(cornerPoint, turnRadiusCircleCenter);
-
-	//Calculate the width of the turn
-	turnWidth = cornerToCenterDistance - turnRadius;
-
 	if (bDebug)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- TurnWidth %f"), turnWidth);
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- CornerToCenterDistance %f"), cornerToCenterDistance);
+	}
+	
+	//Calculate the width of the turn
+	turnWidth = cornerToCenterDistance - turnRadius;
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- TurnWidth %f"),	turnWidth);
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- MaxTurnWidth %f"), _MaxTurnWidth);
 	}
 
 	if (turnWidth <= _MaxTurnWidth)
 	{
-		//The car can take the corner at this speed
+		//Can make the corner
+		if (bDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- Turning..."));
+		}
+		canTurn = 1.f;
 		return 0.f;
 	}
 
+	//Turn width is too big and thus the vehicle has to slow down
+
 	//The car will need to slow down
 	// -- Calculate the difference between the turn width and the max turn width
-	float widthDifference = turnWidth - _MaxTurnWidth;
+	// -- float widthDifference = turnWidth - _MaxTurnWidth;
 
 	//Depending on the difference and the distance to the corner you can calculate how hard to brake [0 - 1]
 
@@ -494,8 +794,11 @@ float UATS_VehicleNavigation::CalculateBrakingForCorner(float currentSpeed, floa
 
 	//Calculate the braking input based on difference between turnRadius and distanceAfterCornerPoint
 	float brakingInput = FMath::Clamp((turnRadius - distanceToAfterCornerPoint) / turnRadius, 0.f, 1.f);
-
-
+	if (bDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AgentNavigation::CalculateCorneringSpeed() -- BrakingInput %f"), brakingInput);
+	}
+	brakingInput = 1.f;
 	return brakingInput;
 }
 
@@ -506,4 +809,58 @@ float UATS_VehicleNavigation::CalculateBrakingDistance(float currentSpeed) const
 	float brakingDistance	= (currentSpeed * currentSpeed) / (2 * deceleration);
 
 	return brakingDistance;
+}
+
+bool UATS_VehicleNavigation::RetrieveSpline()
+{
+	if (m_pSplineComponent)
+	{
+		return true;
+	}
+
+	//Find the spline component
+	m_pSplineComponent = Cast<USplineComponent>(GetOwner()->GetComponentByClass(USplineComponent::StaticClass()));
+	if (m_pSplineComponent)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool UATS_VehicleNavigation::GenerateSplineFromLanePoints()
+{
+	if (m_pSplineComponent == nullptr)
+	{
+		return false;
+	}
+
+	//Retrieve the lane points
+	if (RetrieveLanePoints() == false)
+	{
+		return false;
+	}
+
+	//Check if the points have changed since the last time
+	//TODO
+
+
+	/*
+		We will now generate the spline points
+		 -- Lane points that are a certain distance from each other can be combined to only use the last point
+		 -- Each lane point is a corner and will need an extra 2 points the make the curve smooth, HOW?
+		 -- -- The distance for the extra points needs to be calculated depending on the speed the lane can have in that corner
+	*/
+
+	TArray<FVector> splinePoints{};
+	for (int i = 0; i < m_LanePoints.Num(); i++)
+	{
+		FVector point = m_LanePoints[i].position;
+		splinePoints.Add(point);
+	}
+
+
+
+
+	return true;
 }

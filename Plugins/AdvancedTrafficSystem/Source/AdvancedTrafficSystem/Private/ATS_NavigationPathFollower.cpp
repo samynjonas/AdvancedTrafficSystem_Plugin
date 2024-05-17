@@ -1,12 +1,13 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "../Public/ATS_NavigationPathFollower.h"
 #include "../Public/ATS_NavigationManager.h"
+#include "../Public/ATS_TrafficAwarenessComponent.h"
 
 #include "Kismet/GameplayStatics.h"
 
 UATS_NavigationPathFollower::UATS_NavigationPathFollower()
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 void UATS_NavigationPathFollower::BeginPlay()
@@ -36,7 +37,7 @@ void UATS_NavigationPathFollower::BeginPlay()
 	}
 	_pNavigationManager->Initialize();
 
-	_LaneTags.Add(ELaneType::ATS_Road);
+	_LaneTags.Add(ELaneType::ATS_Car);
 
 	_CurrentPathIndex	= _pNavigationManager->GetClosestPath(GetOwner()->GetActorLocation(), _LaneTags);
 	_DistanceAlongPath	= _pNavigationManager->GetDistanceOnPath(_CurrentPathIndex, GetOwner()->GetActorLocation());
@@ -93,6 +94,32 @@ FTransform UATS_NavigationPathFollower::GetNewPostionBasedOn2Points(float deltaT
 	averageTransform.SetRotation(FQuat::Slerp(frontTransform.GetRotation(), backTransform.GetRotation(), 0.5f));
 
 	return averageTransform;
+}
+
+bool UATS_NavigationPathFollower::GetObjectOnPath(FVector location, float distanceOffset, bool& canAgentPass, FVector& outLocation, float& distanceToObject, AActor* askingActor)
+{
+	if (_pNavigationManager == nullptr || _pNavigationManager->Initialize() == false)
+	{
+		return false;
+	}
+	float distanceOnPath = _pNavigationManager->GetDistanceOnPath(_CurrentPathIndex, location);
+
+	if (askingActor == nullptr)
+	{
+		askingActor = GetOwner();
+	}
+
+	UATS_TrafficAwarenessComponent* pTrafficObject = _pNavigationManager->GetNextTrafficObject(_CurrentPathIndex, distanceOnPath + distanceOffset, askingActor);
+	if (pTrafficObject == nullptr)
+	{
+		return false;
+	}
+
+	canAgentPass		= pTrafficObject->CanAgentPass();
+	outLocation			= pTrafficObject->GetLanePoint();
+	distanceToObject	= FMath::Abs(pTrafficObject->GetDistanceAlongLane() - (distanceOnPath + distanceOffset));
+
+	return true;
 }
 
 void UATS_NavigationPathFollower::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)

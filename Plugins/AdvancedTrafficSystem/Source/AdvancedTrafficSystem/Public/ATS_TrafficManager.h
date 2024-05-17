@@ -11,6 +11,8 @@
 
 class UZoneShapeComponent;
 class UZoneGraphSubsystem;
+
+class AATS_LaneSpline;
 class UATS_AgentNavigation;
 class AATS_BaseTrafficRuler;
 class UATS_TrafficAwarenessComponent;
@@ -22,20 +24,29 @@ class ADVANCEDTRAFFICSYSTEM_API AATS_TrafficManager : public AActor
 	
 public:	
 	AATS_TrafficManager();
+	virtual void Tick(float DeltaTime) override;
 
 protected:
 	~AATS_TrafficManager();
-
 	virtual void BeginPlay() override;
 
+protected:
 	void SortZoneShapes();
 	void AttachTrafficLights();
 
 	void AgentAwareness();
 	void Debugging();
 
+	void RetrieveLanes();
+
 public:
-	virtual void Tick(float DeltaTime) override;
+	TArray<AATS_LaneSpline*> GetLaneSplines() const
+	{
+		return _pArrLaneSplines;
+	}
+	AATS_LaneSpline* GetClosestLane(const FVector& Location, ELaneType laneType);
+
+public:
 
 	const TArray<UZoneShapeComponent*> GetVehicleZoneShapes() const
 	{
@@ -52,7 +63,7 @@ public:
 	}
 	void SearchZoneShapes();
 
-	void Initialize();
+	bool Initialize();
 	bool IsInitialized() const
 	{
 		return bIsInitialized;
@@ -80,6 +91,8 @@ public:
 	FAgentPoint GetClosestPointOnLane(const FBox& box, const FZoneGraphTagFilter& zoneGraphTagFilter, const FVector& point) const;
 	FTransform GetClosestLanePoint(const FVector& Location, float searchDistance) const;
 
+	FTransform GetClosestLanePoint(const FVector& location, float distanceOffset, FZoneGraphTag tagFilter);
+
 	void DrawPath(const TArray<FZoneGraphLaneHandle>& lanes);
 
 	FZoneGraphTag GetPedestrianTag() const
@@ -101,17 +114,17 @@ protected:
 
 	//----------------------------------------------------------\\
 	//----------------ZoneShape Arrays--------------------------\\
-	//----------------TODO SMART POINTERS?----------------------\\
 	//----------------------------------------------------------\\
 
 	UZoneGraphSubsystem* m_pZoneGraphSubSystem{ nullptr };
 
 	TArray<UZoneShapeComponent*> pArrZoneShapes;
-
 	TArray<UZoneShapeComponent*> pArrVehicleZoneShapes;
 	TArray<UZoneShapeComponent*> pArrPedestrianZoneShapes;
 
 	TMap<FZoneGraphLaneHandle, TUniquePtr<ATS_ZoneShapeAgentContainer>> m_pMapZoneShapeAgentContainer;
+
+	TArray<AATS_LaneSpline*> _pArrLaneSplines;
 
 	//----------------------------------------------------------\\
 	//----------------Settings----------------------------------\\

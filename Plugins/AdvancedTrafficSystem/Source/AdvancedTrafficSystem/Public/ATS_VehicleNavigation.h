@@ -11,6 +11,8 @@
 	It is used to provide a custom navigation system for vehicles
 */
 
+class USplineComponent;
+
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class ADVANCEDTRAFFICSYSTEM_API UATS_VehicleNavigation : public UATS_AgentNavigation
 {
@@ -23,6 +25,8 @@ protected:
 	bool MoveToNextPointPhysics(float deltaTime) override;
 	bool MoveToNextPointSimple(float deltaTime) override;
 
+	bool RetrieveSpline();
+	bool GenerateSplineFromLanePoints();
 
 protected:
 	float CalculateSteeringInput(const FVector& CurrentForward, const FVector& ToNextPoint);
@@ -40,7 +44,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "VehicleNavigation")
 	float CalculateBrakingDistance(float currentSpeed) const;
 
-	float CalculateBrakingForCorner(float currentSpeed, float distanceToCorner, FVector cornerPoint, FVector afterCornerPoint);
+	float CalculateBrakingForCorner(float currentSpeed, float distanceToCorner, FVector cornerPoint, FVector afterCornerPoint, float& canTurn);
 
 	bool ApplyVehicleControl(float SteeringInput, float ThrottleInput, float BrakeInput);
 
@@ -73,13 +77,24 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Physics|Friction", DisplayName = "Friction coefficient dry asphalt");
 	float _DryAsphaltFriction{ 0.7f }; // BASE VALUE: 0.7f
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|Drawing|colors", meta = (EditCondition = "bDrawDebugObjects"), DisplayName = "First point color")
+	FColor _DrawDebugBrakeColor{ FColor::Black };
+
 protected:
-	FVector _NextCornerPoint{ FVector::ZeroVector };
-	FVector _CornerExit{};
+	USplineComponent* m_pSplineComponent{ nullptr };
 
-	FAgentData nextCornerLaneData{};
+	/*
+	UPROPERTY(EditAnywhere, Category = "VehicleSettings|Steering")
+	float m_WheelBase{ 2.5f }; // BASE VALUE: 2.5f
+
+	UPROPERTY(EditAnywhere, Category = "VehicleSettings|Steering")
+	float m_TrackWidth{ 4.f }; // BASE VALUE: 2.5f
+
+	UPROPERTY(EditAnywhere, Category = "VehicleSettings|Steering")
+	float m_MaxSteeringAngle{ 30.f }; // BASE VALUE: 2.5f
+	*/
 
 
-	bool _bBrake{ false };
+
 
 };
