@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 
+#include "Camera/CameraComponent.h"
 
 AATS_AISpawner::AATS_AISpawner()
 {
@@ -80,7 +81,14 @@ bool AATS_AISpawner::Initialize()
 	
 	if (_bAttachToAnActor && _pActorToAttachTo)
 	{
-		AttachToActor(_pActorToAttachTo, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		if (UCameraComponent* pCamera = _pActorToAttachTo->FindComponentByClass<UCameraComponent>())
+		{
+			AttachToComponent(pCamera, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		}
+		else
+		{
+			AttachToActor(_pActorToAttachTo, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		}
 	}
 
 	_bIsInitialized = true;
